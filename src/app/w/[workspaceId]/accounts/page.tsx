@@ -16,7 +16,10 @@ export default function AccountsPage() {
   const accounts = useQuery({
     queryKey: ["accounts", workspaceId],
     queryFn: () => api<{ accounts: Account[] }>(`/api/workspaces/${workspaceId}/accounts`),
-    refetchInterval: () => (document.hidden ? false : 10000),
+    refetchInterval: () => {
+      if (typeof document === "undefined" || document.hidden) return false;
+      return 10000;
+    },
   });
   const config = useQuery({ queryKey: ["config"], queryFn: () => api<{ nessieConfigured: boolean }>("/api/configuration") });
   const create = useMutation({

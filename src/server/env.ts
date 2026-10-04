@@ -13,7 +13,7 @@ const schema = z.object({
     .pipe(z.array(z.string().url())),
   SENTINEL_DB_PATH: z.string().min(1),
   NESSIE_API_KEY: z.string().min(1).optional(),
-  NESSIE_BASE_URL: z.string().url().default("http://api.nessieisreal.com"),
+  NESSIE_BASE_URL: z.string().url().default("https://api.nessieisreal.com"),
   XAI_API_KEY: z.string().min(1).optional(),
   XAI_VOICE_MODEL: z.string().min(1).default("grok-voice-latest"),
   BANK_FRESHNESS_SECONDS: z.coerce.number().int().positive().default(60),

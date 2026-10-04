@@ -19,7 +19,7 @@ if (!existsSync(".env.local")) {
       'NESSIE_API_KEY=',
       'XAI_API_KEY=',
       "SENTINEL_DB_PATH=data/sentinel.sqlite",
-      "NESSIE_BASE_URL=http://api.nessieisreal.com",
+      "NESSIE_BASE_URL=https://api.nessieisreal.com",
       "XAI_VOICE_MODEL=grok-voice-latest",
       "",
     ].join("\n"),

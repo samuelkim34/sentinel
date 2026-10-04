@@ -29,7 +29,10 @@ export function Shell({ workspaceId, children }: { workspaceId: string; children
   const workspaces = useQuery({
     queryKey: ["workspaces"],
     queryFn: () => api<{ workspaces: Workspace[] }>("/api/workspaces"),
-    refetchInterval: () => (document.hidden ? false : 10000),
+    refetchInterval: () => {
+      if (typeof document === "undefined" || document.hidden) return false;
+      return 10000;
+    },
   });
   const current = workspaces.data?.workspaces.find((item) => item.id === workspaceId);
 

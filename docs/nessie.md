@@ -1,6 +1,6 @@
 # Nessie sandbox boundary
 
-The server adapter uses `NESSIE_API_KEY` and `NESSIE_BASE_URL`, defaulting to `http://api.nessieisreal.com`. The default matches the historical Nessie sandbox interface; its current availability and response contracts must be verified with your own sandbox key. HTTPS alternate endpoints can be configured if supported by the provider.
+The server adapter uses `NESSIE_API_KEY` and `NESSIE_BASE_URL`, defaulting to `https://api.nessieisreal.com`. The current live Nessie sandbox is HTTPS-based; HTTP resets the connection in practice. Verify the exact endpoint and response shape with your own sandbox key.
 
 Nessie is a sandbox, not a real Capital One customer-login/open-banking integration. Enter sandbox customer/account IDs and sandbox funds only.
 
