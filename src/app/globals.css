@@ -1,20 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --font-plex: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-plex-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
-  --ink: #142033;
-  --paper: #f6f4ef;
-  --panel: #ffffff;
-  --line: #d7d1c6;
-  --nav: #101820;
-  --nav-ink: #e7eef6;
-  --blue: #1d4ed8;
-  --blue-ink: #ffffff;
-  --good: #166534;
-  --warn: #92400e;
-  --bad: #9f1239;
-  --muted: #5c6570;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-ui: "Avenir Next", "Segoe UI", "Helvetica Neue", "Lucida Grande", sans-serif;
+  --font-mono: "SFMono-Regular", "SFMono-Regular", "Menlo", "Consolas", monospace;
+  --ink: #171b20;
+  --paper: #f5f1ea;
+  --panel: #fffdf9;
+  --line: #d8d0c6;
+  --nav: #111d2b;
+  --nav-ink: #edf3f9;
+  --brand: #1c2e3d;
+  --brand-strong: #121d2a;
+  --brand-soft: #dde9f5;
+  --blue: #1b2d3e;
+  --blue-ink: #f8fafc;
+  --good: #205e48;
+  --warn: #8a5a1d;
+  --bad: #8e2d3c;
+  --muted: #5f6975;
 }
 
 @theme inline {
@@ -24,13 +28,54 @@
   --color-line: var(--line);
   --color-nav: var(--nav);
   --color-blue: var(--blue);
-  --font-sans: var(--font-plex);
-  --font-mono: var(--font-plex-mono);
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-display);
+  --font-mono: var(--font-mono);
 }
 
 html { color-scheme: light; }
-body { background: var(--paper); color: var(--ink); }
-:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+p, li, label, input, textarea, select, button {
+  letter-spacing: -0.01em;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.06);
+  color: var(--nav-ink);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.auth-shell {
+  background: rgba(255,255,255,0.22);
+  backdrop-filter: blur(2px);
+}
+
+:focus-visible { outline: 3px solid rgba(29,45,61,0.35); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }

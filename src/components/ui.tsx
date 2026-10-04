@@ -9,13 +9,13 @@ export function cn(...values: Array<string | false | null | undefined>) {
 }
 
 const buttonStyles = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-base font-medium disabled:cursor-not-allowed disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-base font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_1px_0_rgba(17,29,43,0.04)]",
   {
     variants: {
       variant: {
-        primary: "bg-blue text-white hover:bg-blue-800",
-        quiet: "border border-line bg-panel text-ink hover:bg-stone-50",
-        danger: "bg-rose-800 text-white hover:bg-rose-900",
+        primary: "bg-[#15212d] text-white hover:bg-[#1a2b3b]",
+        quiet: "border border-line bg-panel text-ink hover:bg-[#f2eee7]",
+        danger: "bg-[#8f2d3b] text-white hover:bg-[#7a2331]",
       },
     },
     defaultVariants: { variant: "primary" },
@@ -28,19 +28,19 @@ export function Button({ className, variant, asChild, ...props }: ButtonHTMLAttr
 }
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={cn("w-full rounded-md border border-line bg-panel px-3 py-2 text-base", props.className)} />;
+  return <input {...props} className={cn("w-full rounded-xl border border-line bg-[#f8f4ef] px-3.5 py-2.5 text-base text-ink placeholder:text-slate-400 shadow-[0_1px_0_rgba(17,29,43,0.02)]", props.className)} />;
 }
 
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={cn("w-full rounded-md border border-line bg-panel px-3 py-2 text-base", props.className)} />;
+  return <textarea {...props} className={cn("w-full rounded-xl border border-line bg-[#f8f4ef] px-3.5 py-2.5 text-base text-ink placeholder:text-slate-400 shadow-[0_1px_0_rgba(17,29,43,0.02)]", props.className)} />;
 }
 
 export function Label(props: LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label {...props} className={cn("mb-1 block text-sm font-medium", props.className)} />;
+  return <label {...props} className={cn("mb-1 block text-[0.75rem] font-medium uppercase tracking-[0.14em] text-slate-500", props.className)} />;
 }
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div {...props} className={cn("rounded-lg border border-line bg-panel p-4 shadow-sm", className)} />;
+  return <div {...props} className={cn("rounded-2xl border border-line bg-panel p-4 shadow-[0_1px_0_rgba(17,29,43,0.03)]", className)} />;
 }
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "good" | "warn" | "bad" }) {
