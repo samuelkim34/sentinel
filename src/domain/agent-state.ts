@@ -6,7 +6,7 @@ import { getTask, listTasks } from "./proposals";
 import { getWallet } from "./accounts";
 import type { HumanContext } from "./access";
 
-// Text agents, optional external tools and voice read the same persisted facts.
+// Text agents and optional external tools read the same persisted facts.
 export function agentState(db: DatabaseSync, human: HumanContext, registrationId: string, now = Date.now()) {
   const registration = getRegistration(db, human, registrationId);
   const grants = rows(db, "SELECT wallet_id FROM read_grants WHERE registration_id = ? AND state = 'ACTIVE'", [registrationId]);

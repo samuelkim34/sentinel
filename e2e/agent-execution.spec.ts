@@ -15,7 +15,6 @@ test('on-site chat queues a task and the running worker persists its research re
   await page.getByLabel('Purpose', { exact: true }).fill('Research recorded finances');
   await page.getByRole('button', { name: 'Create agent', exact: true }).click();
   await expect(page.getByText(/Agent worker online/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Talk', exact: true })).toBeEnabled();
   await page.getByLabel('Message to agent').fill('Create a research task to review my cash flow.');
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect(page.getByText('Your research task is queued.', { exact: true }).first()).toBeVisible({ timeout: 20000 });

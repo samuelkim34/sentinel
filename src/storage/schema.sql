@@ -219,7 +219,7 @@ CREATE TABLE IF NOT EXISTS instructions (
   registration_id TEXT,
   workspace_id TEXT NOT NULL REFERENCES workspaces(id),
   authored_by TEXT NOT NULL,
-  source TEXT NOT NULL CHECK (source IN ('HUMAN_UI', 'VOICE')),
+  source TEXT NOT NULL CHECK (source IN ('HUMAN_UI', 'LEGACY')),
   text TEXT NOT NULL,
   state TEXT NOT NULL CHECK (state IN ('QUEUED', 'ACKNOWLEDGED', 'APPLIED')),
   revision INTEGER NOT NULL,
@@ -321,51 +321,6 @@ CREATE TABLE IF NOT EXISTS jobs (
   error_code TEXT
 );
 
-CREATE TABLE IF NOT EXISTS authority_drafts (
-  id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
-  registration_id TEXT NOT NULL REFERENCES registrations(id),
-  requested_by TEXT NOT NULL,
-  source TEXT NOT NULL,
-  exact_terms_json TEXT NOT NULL,
-  state TEXT NOT NULL CHECK (state IN ('PENDING', 'CONFIRMED', 'EXPIRED', 'CANCELLED')),
-  expires_at INTEGER NOT NULL,
-  created_at INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS voice_sessions (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  workspace_id TEXT NOT NULL,
-  registration_id TEXT NOT NULL,
-  task_id TEXT,
-  token_hash TEXT NOT NULL,
-  allowed_functions TEXT NOT NULL,
-  state TEXT NOT NULL CHECK (state IN ('ACTIVE', 'ENDED', 'EXPIRED')),
-  retain_transcript INTEGER NOT NULL DEFAULT 0 CHECK (retain_transcript IN (0, 1)),
-  started_at INTEGER NOT NULL,
-  expires_at INTEGER NOT NULL,
-  ended_at INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS voice_messages (
-  session_id TEXT NOT NULL REFERENCES voice_sessions(id),
-  sequence INTEGER NOT NULL,
-  speaker TEXT NOT NULL,
-  text TEXT NOT NULL,
-  final INTEGER NOT NULL CHECK (final IN (0, 1)),
-  created_at INTEGER NOT NULL,
-  PRIMARY KEY (session_id, sequence)
-);
-
-CREATE TABLE IF NOT EXISTS voice_tool_calls (
-  session_id TEXT NOT NULL REFERENCES voice_sessions(id),
-  call_id TEXT NOT NULL,
-  result_json TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  PRIMARY KEY (session_id, call_id)
-);
-
 CREATE TABLE IF NOT EXISTS audit_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   workspace_id TEXT NOT NULL,
@@ -398,18 +353,6 @@ CREATE TABLE IF NOT EXISTS reauth_grants (
   expires_at INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS user_preferences (
-  user_id TEXT PRIMARY KEY,
-  retain_voice_transcripts INTEGER NOT NULL DEFAULT 0 CHECK (retain_voice_transcripts IN (0, 1))
-);
-
-CREATE TABLE IF NOT EXISTS rate_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  subject TEXT NOT NULL,
-  action TEXT NOT NULL,
-  created_at INTEGER NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS worker_status (
   id TEXT PRIMARY KEY CHECK (id = 'primary'),
   last_seen_at INTEGER NOT NULL,
@@ -423,5 +366,4 @@ CREATE INDEX IF NOT EXISTS reservations_wallet ON reservations(wallet_id, mandat
 CREATE INDEX IF NOT EXISTS jobs_due ON jobs(state, run_after);
 CREATE INDEX IF NOT EXISTS connections_active ON connections(registration_id, state);
 CREATE INDEX IF NOT EXISTS audit_workspace ON audit_events(workspace_id, id);
-CREATE INDEX IF NOT EXISTS rate_lookup ON rate_events(subject, action, created_at);
 CREATE INDEX IF NOT EXISTS observations_wallet ON bank_observations(wallet_id, observed_at);

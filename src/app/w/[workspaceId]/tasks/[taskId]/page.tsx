@@ -3,7 +3,6 @@
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatUsd, formatWhen } from "../../../../../client/api";
-import { VoicePanel } from "../../../../../components/voice-panel";
 import { Button, Card, Field, Textarea } from "../../../../../components/ui";
 
 export default function TaskDetailPage() {
@@ -18,11 +17,6 @@ export default function TaskDetailPage() {
       proposals: Array<{ id: string; state: string; amountCents: number; explanation: string; decisionCodes: string[]; payment: { settlementMode: string; detail: string | null } | null }>;
     }>(`/api/workspaces/${workspaceId}/tasks/${taskId}`),
     refetchInterval: 2000,
-  });
-  const bot = useQuery({
-    queryKey: ["bot-verified", workspaceId, task.data?.registrationId],
-    enabled: Boolean(task.data?.registrationId),
-    queryFn: () => api<{ toolsVerifiedAt: number | null; agentReady: boolean }>(`/api/workspaces/${workspaceId}/registrations/${task.data!.registrationId}`),
   });
   const instruct = useMutation({
     mutationFn: (text: string) => api(`/api/workspaces/${workspaceId}/tasks/${taskId}/instructions`, { method: "POST", body: JSON.stringify({ text }) }),
@@ -54,7 +48,6 @@ export default function TaskDetailPage() {
         <h2 className="text-xl font-semibold">Policy and payment</h2>
         {data.proposals.length === 0 ? <p>No proposal yet.</p> : data.proposals.map((item) => <p key={item.id}>{formatUsd(item.amountCents)} · {item.state === "COMPLETED" && item.payment?.settlementMode === "LOCAL_SANDBOX" ? "SANDBOX COMPLETED" : item.state} · {item.decisionCodes.join(", ")} — {item.explanation}</p>)}
       </Card>
-      <VoicePanel workspaceId={workspaceId} registrationId={data.registrationId} taskId={taskId} agentReady={Boolean(bot.data?.agentReady || bot.data?.toolsVerifiedAt)} />
     </div>
   );
 }

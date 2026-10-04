@@ -7,7 +7,6 @@ import { createAgent, chatHistory, enableOnsiteAgent, internalContext, retryAgen
 import { createConnection, getRegistration, pauseRegistration, resumeRegistration } from '../src/domain/authority';
 import { claimTask, createTask, queueInstruction } from '../src/domain/proposals';
 import { agentState } from '../src/domain/agent-state';
-import { createVoiceSession } from '../src/domain/voice';
 import { getEnv, resetEnvCache } from '../src/server/env';
 import { recoverAgentRuns, runAgentCycle } from '../src/agents/runner';
 import { executeAgentTool, agentTools } from '../src/agents/tools';
@@ -102,7 +101,7 @@ test('chat is durable and idempotent; controlled model outputs are paired with t
   assert.equal(history.runs[0].tools[0].name, 'get_agent_state'); f.db.close();
 });
 
-test('chat histories and voice state expose only the current user’s conversation', () => {
+test('chat histories and agent state expose only the current user’s conversation', () => {
   const f = onsite('BUSINESS');
   run(f.db, "INSERT INTO memberships (workspace_id, user_id, role, state, version, joined_at) VALUES (?, 'owner2', 'owner', 'ACTIVE', 1, 1)", [f.workspace.id]);
   const second = human(f.workspace.id, 'owner2');
@@ -277,14 +276,6 @@ test('task runs never receive a controller’s private chat as source material',
     const result = request.input.findLast(i => i.type === 'function_call_output');
     assert.deepEqual(JSON.parse(String(result?.output)).recentChat, []); return reply('Shared facts only.');
   }); f.db.close();
-});
-
-test('on-site voice works without an external tool verification or permanent browser key', async () => {
-  const f = onsite(); let calls = 0;
-  globalThis.fetch = async (url, init) => { calls++; assert.equal(String(url), 'https://api.x.ai/v1/realtime/client_secrets'); assert(String((init?.headers as Record<string, string>).authorization).includes(getEnv().XAI_API_KEY!)); return Response.json({ client_secret: { value: 'ephemeral-test-credential' } }); };
-  const session = await createVoiceSession(f.db, f.owner, { registrationId: f.registration.id }, Date.now());
-  assert.equal(calls, 1); assert.equal(session.ephemeralCredential, 'ephemeral-test-credential'); assert(!JSON.stringify(session).includes(getEnv().XAI_API_KEY!));
-  assert(session.instructions.includes('Explain account facts clearly.')); assert.equal(getRegistration(f.db, f.owner, f.registration.id).toolsVerifiedAt, null); f.db.close();
 });
 
 test('xAI requests use manual context, no stored response and server-only credentials', async () => {

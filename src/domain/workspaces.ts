@@ -206,7 +206,6 @@ export function updateMember(
     );
     if (changes !== 1) throw conflict("VERSION_CONFLICT", "The membership changed. Refresh and try again.");
     if (nextState === "REMOVED") {
-      run(db, "UPDATE voice_sessions SET state = 'ENDED', ended_at = ? WHERE workspace_id = ? AND user_id = ? AND state = 'ACTIVE'", [now, human.workspaceId, targetUserId]);
       run(
         db,
         `UPDATE connections SET state = 'REVOKED'

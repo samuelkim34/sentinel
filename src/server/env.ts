@@ -23,11 +23,8 @@ const schema = z.object({
   AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(128).max(8192).default(2048),
   AGENT_REQUEST_TIMEOUT_SECONDS: z.coerce.number().int().min(5).max(120).default(45),
   AGENT_DAILY_RUN_LIMIT: z.coerce.number().int().min(1).max(10000).default(200),
-  XAI_VOICE_MODEL: z.string().min(1).default("grok-voice-latest"),
   BANK_FRESHNESS_SECONDS: z.coerce.number().int().positive().default(60),
   TASK_LEASE_SECONDS: z.coerce.number().int().positive().default(300),
-  VOICE_SESSION_SECONDS: z.coerce.number().int().positive().default(900),
-  VOICE_EPHEMERAL_SECONDS: z.coerce.number().int().positive().default(300),
   WORKER_POLL_MS: z.coerce.number().int().positive().default(1000),
   RECONCILE_MAX_ATTEMPTS: z.coerce.number().int().positive().default(8),
 });
@@ -57,11 +54,8 @@ export function getEnv(): Env {
     AGENT_MAX_OUTPUT_TOKENS: process.env.AGENT_MAX_OUTPUT_TOKENS || undefined,
     AGENT_REQUEST_TIMEOUT_SECONDS: process.env.AGENT_REQUEST_TIMEOUT_SECONDS || undefined,
     AGENT_DAILY_RUN_LIMIT: process.env.AGENT_DAILY_RUN_LIMIT || undefined,
-    XAI_VOICE_MODEL: process.env.XAI_VOICE_MODEL || undefined,
     BANK_FRESHNESS_SECONDS: process.env.BANK_FRESHNESS_SECONDS || undefined,
     TASK_LEASE_SECONDS: process.env.TASK_LEASE_SECONDS || undefined,
-    VOICE_SESSION_SECONDS: process.env.VOICE_SESSION_SECONDS || undefined,
-    VOICE_EPHEMERAL_SECONDS: process.env.VOICE_EPHEMERAL_SECONDS || undefined,
     WORKER_POLL_MS: process.env.WORKER_POLL_MS || undefined,
     RECONCILE_MAX_ATTEMPTS: process.env.RECONCILE_MAX_ATTEMPTS || undefined,
   });
@@ -104,14 +98,11 @@ export function publicConfig() {
   const env = getEnv();
   return {
     nessieConfigured: Boolean(env.NESSIE_API_KEY),
-    voiceConfigured: Boolean(env.XAI_API_KEY),
     agentsConfigured: Boolean(env.XAI_API_KEY),
     agentModel: env.XAI_AGENT_MODEL,
     nessieBaseHost: new URL(env.NESSIE_BASE_URL).host,
-    voiceModel: env.XAI_VOICE_MODEL,
     bankFreshnessSeconds: env.BANK_FRESHNESS_SECONDS,
     taskLeaseSeconds: env.TASK_LEASE_SECONDS,
-    voiceSessionSeconds: env.VOICE_SESSION_SECONDS,
     appOrigin: env.APP_ORIGIN,
     mcpDynamicRegistrationEnabled: env.ENABLE_MCP_DCR,
   };

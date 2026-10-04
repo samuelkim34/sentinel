@@ -29,13 +29,8 @@ export function migrateApplication(db: DatabaseSync): void {
     run(db, "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)", [MIGRATION_ID, Date.now()]);
   }
   if (!row(db, 'SELECT id FROM schema_migrations WHERE id = ?', ['002_review_fixes'])) {
-    if (!rows(db, 'PRAGMA table_info(voice_tool_calls)').some((column) => text(column.name) === 'request_hash')) {
-      db.exec('ALTER TABLE voice_tool_calls ADD COLUMN request_hash TEXT');
-    }
     // Older versions accidentally shared an owner's category mapping globally.
     db.exec("UPDATE merchant_catalog SET verified_category = 'UNKNOWN' WHERE id IN (SELECT merchant_id FROM merchant_permissions)");
-    db.exec("UPDATE voice_sessions SET state = 'ENDED', ended_at = expires_at WHERE state = 'ACTIVE' AND id NOT IN (SELECT id FROM voice_sessions v WHERE v.state = 'ACTIVE' AND v.rowid = (SELECT MAX(v2.rowid) FROM voice_sessions v2 WHERE v2.user_id = v.user_id AND v2.state = 'ACTIVE'))");
-    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS voice_one_active_per_user ON voice_sessions(user_id) WHERE state = 'ACTIVE'");
     run(db, 'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)', ['002_review_fixes', Date.now()]);
   }
   if (!row(db, 'SELECT id FROM schema_migrations WHERE id = ?', ['003_onsite_agents'])) {
@@ -66,6 +61,26 @@ export function migrateApplication(db: DatabaseSync): void {
         created_at INTEGER NOT NULL
       );`);
     run(db, 'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)', ['004_sandbox_ledger', Date.now()]);
+  }
+  if (!row(db, 'SELECT id FROM schema_migrations WHERE id = ?', ['005_remove_voice'])) {
+    // Remove obsolete feature storage on upgrade; preserve financial records,
+    // chat, tasks and historical instruction text with an explicit legacy source.
+    db.exec(`DROP TABLE IF EXISTS voice_messages;
+      DROP TABLE IF EXISTS voice_tool_calls;
+      DROP TABLE IF EXISTS voice_sessions;
+      DROP TABLE IF EXISTS authority_drafts;
+      DROP TABLE IF EXISTS user_preferences;
+      DROP TABLE IF EXISTS rate_events;`);
+    const instructionSql = text(row(db, "SELECT sql FROM sqlite_master WHERE name = 'instructions'")?.sql);
+    if (instructionSql.includes("'VOICE'")) {
+      db.exec(instructionSql.replace(/CREATE TABLE(?: IF NOT EXISTS)? ["`]?instructions["`]?/i, 'CREATE TABLE instructions_v5').replace("'VOICE'", "'LEGACY'"));
+      db.exec(`INSERT INTO instructions_v5 SELECT id, task_id, registration_id, workspace_id, authored_by,
+        CASE WHEN source = 'VOICE' THEN 'LEGACY' ELSE source END,
+        text, state, revision, created_at, acknowledged_at, applied_at, reported_outcome FROM instructions;
+        DROP TABLE instructions;
+        ALTER TABLE instructions_v5 RENAME TO instructions;`);
+    }
+    run(db, 'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)', ['005_remove_voice', Date.now()]);
   }
   run(db, "INSERT INTO app_meta (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [
     String(SCHEMA_VERSION),

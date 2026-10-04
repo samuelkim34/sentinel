@@ -5,10 +5,7 @@ Sentinel's mission is to make delegated financial work visible and bounded for i
 ```mermaid
 flowchart TD
   UI["Agent setup, chat and dashboard"] --> HTTP["Cookie-authenticated routes"]
-  UI --> Voice["Grok realtime voice"]
-  Voice --> Gateway["Bound voice tool gateway"]
   HTTP --> DB["SQLite profiles, messages and jobs"]
-  Gateway --> Domain["Domain authorization and policy"]
   Agent["Grok agent worker"] --> DB
   Agent --> Grok["xAI Responses API"]
   Grok --> Agent
@@ -20,7 +17,7 @@ flowchart TD
   Nessie --> Payment
 ```
 
-The model never receives a database connection or bank credential. Text function calls are executed by the server; voice calls pass through the authenticated browser gateway. Agent creation/configuration does not invoke a native bot provisioning API.
+The model never receives a database connection or bank credential. Text function calls are executed by the server. Agent creation/configuration does not invoke a native bot provisioning API.
 
 ## Source map
 
@@ -29,7 +26,6 @@ The model never receives a database connection or bank credential. Text function
 | `src/app/w/[workspaceId]/bots/` | Create/list agents and existing redesigned detail UI |
 | `src/components/agent-profile.tsx` | Profile editing, read-grant choices and legacy conversion |
 | `src/components/agent-chat.tsx` | Per-user persisted chat, purchase consent, run activity and explicit retry |
-| `src/components/voice-panel.tsx` | Ephemeral voice socket, microphone, playback, lifecycle and draft review |
 | `src/domain/agents.ts` | Agent profiles, internal contexts, durable chat queue, scheduling, limits, live control checks |
 | `src/agents/grok-client.ts` | Bounded xAI HTTP transport, validation, manual function-call history and safe errors |
 | `src/agents/runner.ts` | Claims, heartbeat, stale-run recovery, account refresh, bounded execution and summaries |
@@ -42,7 +38,6 @@ The model never receives a database connection or bank credential. Text function
 | `src/domain/authority.ts` | Agent registrations, read grants, allowances and lifecycle |
 | `src/domain/proposals.ts`, `policy.ts` | Task leases/revisions, immutable proposals, limits and human approvals |
 | `src/domain/settlement.ts`, `src/worker/main.ts` | At-most-one recorded submission, receipt checks and reconciliation |
-| `src/domain/voice.ts`, `agent-state.ts` | Session-bound voice tools and persisted shared facts |
 | `src/banking/` | Nessie server adapter and checked cents/provider parsing |
 | `src/storage/` | SQLite, independent auth/domain connections and versioned migrations |
 | `scripts/`, `docker-compose.yml` | Web plus both workers, builds, migrations and local operation |

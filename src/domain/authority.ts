@@ -178,7 +178,6 @@ export function archiveRegistration(db: DatabaseSync, human: HumanContext, regis
     requireControllable(db, human, registrationId);
     run(db, "UPDATE registrations SET state = 'ARCHIVED', version = version + 1 WHERE id = ?", [registrationId]);
     run(db, "UPDATE connections SET state = 'REVOKED' WHERE registration_id = ? AND state != 'REVOKED'", [registrationId]);
-    run(db, "UPDATE voice_sessions SET state = 'ENDED', ended_at = ? WHERE registration_id = ? AND state = 'ACTIVE'", [now, registrationId]);
     cancelUnsubmitted(db, registrationId, "ARCHIVED", now, false);
     run(
       db,

@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, formatUsd, formatWhen } from "../../../../../client/api";
-import { VoicePanel } from "../../../../../components/voice-panel";
 import { Button, Card, Field, Input, MoneyInput } from "../../../../../components/ui";
 import { PasswordConfirmation } from "../../../../../components/password-confirmation";
 import { useWorkspace } from "../../../../../client/use-workspace";
@@ -25,14 +24,14 @@ type Detail = {
 export default function BotDetailPage() {
   const { workspaceId, registrationId } = useParams<{ workspaceId: string; registrationId: string }>();
   const queryClient = useQueryClient();
-  const workspace = useWorkspace(workspaceId);
-  const session = useQuery({ queryKey: ['current-session'], queryFn: () => api<{ user: { id: string } } | null>('/api/auth/get-session') });
-  const [password, setPassword] = useState("");
   const bot = useQuery({
     queryKey: ["bot", workspaceId, registrationId],
     queryFn: () => api<Detail>(`/api/workspaces/${workspaceId}/registrations/${registrationId}`),
     refetchInterval: 10000,
   });
+  const workspace = useWorkspace(workspaceId);
+  const session = useQuery({ queryKey: ['current-session'], queryFn: () => api<{ user: { id: string } } | null>('/api/auth/get-session') });
+  const [password, setPassword] = useState("");
   const accounts = useQuery({ queryKey: ["accounts", workspaceId], queryFn: () => api<{ accounts: Array<{ id: string; label: string }> }>(`/api/workspaces/${workspaceId}/accounts`) });
   const action = useMutation({
     mutationFn: (path: string) => api(`/api/workspaces/${workspaceId}/registrations/${registrationId}/${path}`, { method: "POST", body: "{}" }),
@@ -127,7 +126,6 @@ export default function BotDetailPage() {
         <h2 className="text-xl font-semibold">Tasks</h2>
         {data.tasks.length === 0 ? <p>No tasks assigned.</p> : data.tasks.map((task) => <p key={task.id}><Link className="underline" href={`/w/${workspaceId}/tasks/${task.id}`}>{task.title}</Link> · {task.state}</p>)}
       </Card>
-      <VoicePanel workspaceId={workspaceId} registrationId={registrationId} agentReady={data.agentReady || Boolean(data.toolsVerifiedAt)} />
     </div>
   );
 }

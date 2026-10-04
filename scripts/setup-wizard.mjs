@@ -32,7 +32,7 @@ export async function startSetupWizard(directory, config) {
       <p>Sandbox purchases use simulated completion and a separate Sentinel spending balance on new installations. No real purchases or deliveries occur. Existing configuration is preserved.</p>
       <form method="post" action="/?token=${token}" autocomplete="off">
       ${missing.map(key => `<label>${keys[key]}<input type="password" name="${key}" maxlength="512" autocomplete="new-password" spellcheck="false" required></label>`).join("")}
-      <p><small>Get your own keys from your Nessie sandbox and xAI developer accounts. An xAI account with API access and available credit is needed for agents and voice. Do not enter a bank login or account password.</small></p>
+      <p><small>Get your own keys from your Nessie sandbox and xAI developer accounts. An xAI account with API access and available credit is needed for agents. Do not enter a bank login or account password.</small></p>
       <button type="submit">Save keys and start Sentinel</button></form><p>Keep the launcher window open while using Sentinel.</p></html>`, true);
     }
     if (request.method !== "POST") return reply(405, "Method not allowed.");

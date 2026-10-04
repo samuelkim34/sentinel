@@ -48,7 +48,6 @@ import {
 } from "../../../../../domain/proposals";
 import { activityGraph, listEvents, overview } from "../../../../../domain/read-models";
 import { queueReconcile } from "../../../../../domain/settlement";
-import { getAuthorityDraft, confirmAuthorityDraft } from "../../../../../domain/voice";
 import { createInvitation, listMembers, updateMember } from "../../../../../domain/workspaces";
 import { resourceAdminHeaders } from "../../../../../server/auth/config";
 import { auth } from "../../../../../server/auth/config";
@@ -202,10 +201,6 @@ async function handle(request: Request, workspaceId: string, slug: string[]) {
   }
   if (request.method === "GET" && a === "activity-graph") {
     return json(activityGraph(db, human, new URL(request.url).searchParams.get("taskId") ?? undefined));
-  }
-  if (request.method === "GET" && a === "authority-drafts" && b) return json(getAuthorityDraft(db, human, b));
-  if (request.method === "POST" && a === "authority-drafts" && b && c === "confirm") {
-    return json(confirmAuthorityDraft(db, human, b, now));
   }
   throw notFound("That Sentinel route does not exist.");
 }

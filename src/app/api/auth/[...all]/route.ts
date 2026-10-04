@@ -12,7 +12,6 @@ export async function POST(request: Request) {
   const session = signingOut ? await auth.api.getSession({ headers: request.headers }) : null;
   const response = await handlers.POST(request);
   if (signingOut && response.ok && session) atomic(getDb(), () => {
-    run(getDb(), "UPDATE voice_sessions SET state = 'ENDED', ended_at = ? WHERE user_id = ? AND state = 'ACTIVE'", [Date.now(), session.user.id]);
     run(getDb(), "DELETE FROM reauth_grants WHERE session_id = ?", [session.session.id]);
   });
   return response;

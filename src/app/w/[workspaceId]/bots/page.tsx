@@ -27,7 +27,7 @@ export default function BotsPage() {
   return (
     <div className="grid gap-4">
       <h1 className="text-3xl font-semibold">Bots</h1>
-      <p className="max-w-2xl text-sm text-slate-600">Create, configure and talk to your Grok-powered agents here. Each agent has a purpose, account access and its own tasks. An owner grants spending allowances separately.</p>
+      <p className="max-w-2xl text-sm text-slate-600">Create, configure and chat with your Grok-powered agents here. Each agent has a purpose, account access and its own tasks. An owner grants spending allowances separately.</p>
       {bots.isLoading ? <p role="status">Loading registrations…</p> : null}
       {bots.isError && <p role="alert">{bots.error.message}</p>}
       {bots.data?.registrations.length === 0 ? <p>No agents yet. Create your first agent below.</p> : null}

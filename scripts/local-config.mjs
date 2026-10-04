@@ -34,7 +34,6 @@ export function ensureLocalConfig(directory = process.cwd(), environment = proce
     SENTINEL_DB_PATH: "data/sentinel.sqlite",
     NESSIE_BASE_URL: "https://api.nessieisreal.com",
     XAI_AGENT_MODEL: "grok-4.7",
-    XAI_VOICE_MODEL: "grok-voice-latest",
     NESSIE_SIMULATE_COMPLETION: "true",
     NESSIE_WHOLE_DOLLARS_ONLY: "true",
   };

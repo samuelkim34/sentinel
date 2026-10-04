@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const CATEGORIES = [
   "GROCERIES",
@@ -32,18 +32,6 @@ export const OAUTH_SCOPES = [
   "offline_access",
   ...CONNECTOR_SCOPES,
 ] as const;
-
-export const VOICE_FUNCTIONS = [
-  "get_agent_state",
-  "get_context",
-  "get_task",
-  "queue_instruction",
-  "create_task",
-  "pause_registration",
-  "draft_authority_change",
-] as const;
-
-export type VoiceFunctionName = (typeof VOICE_FUNCTIONS)[number];
 
 export const FORBIDDEN_CONNECTOR_TOOLS = [
   "approve_purchase",

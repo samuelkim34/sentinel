@@ -54,7 +54,7 @@ npm run start
 
 `npm start` starts web, agent worker and payment worker together. For separate supervision use `npm run start:web`, `npm run worker:agents` and `npm run worker` with the same environment and database path. Do not start duplicate workers on top of the bundled startup.
 
-`start` applies migrations before serving. The build uses its own temporary database and generated secret so CI can build without access to deployment secrets or user data. Use a service manager with automatic restart and a graceful shutdown period. The reverse proxy must preserve HTTPS browser origins, forward cookies, and allow MCP POST/streaming responses without buffering them indefinitely. The browser's audio WebSocket connects directly to `wss://api.x.ai`; permit it if adding a CSP.
+`start` applies migrations before serving. The build uses its own temporary database and generated secret so CI can build without access to deployment secrets or user data. Use a service manager with automatic restart and a graceful shutdown period. The reverse proxy must preserve HTTPS browser origins, forward cookies, and allow MCP POST/streaming responses without buffering them indefinitely.
 
 ## Docker Compose
 
@@ -80,7 +80,7 @@ The Compose volume starts empty. To bring an existing database into it, stop all
 
 Application migration `003_onsite_agents` preserves existing connection/lease relationships and adds persistent on-site agent profiles, chat messages and execution journals. Convert legacy registrations from their agent page after finishing external work. The operator sets one `XAI_API_KEY`; end users configure agents on-site. No public MCP tunnel is needed for local agent execution.
 
-Application migration `002_review_fixes` adds voice call hashes and one-active-session enforcement, and makes previous owner merchant-category overrides remain workspace-specific. Existing workspaces, accounts, tasks, and users are retained. The migrations have no downgrade path; use the backup when rolling back application versions.
+Application migration `002_review_fixes` makes previous owner merchant-category overrides remain workspace-specific. Existing workspaces, accounts, tasks, and users are retained. The migrations have no downgrade path; use the backup when rolling back application versions.
 
 ## Troubleshooting
 
@@ -89,13 +89,14 @@ Application migration `002_review_fixes` adds voice call hashes and one-active-s
 | `INVALID_ORIGIN` | Compare the browser's scheme/host/port with both canonical URLs and `ALLOWED_ORIGINS`, then restart. Use one browser hostname consistently. |
 | Browser resources blocked in development | Add the deliberate dev hostname through the canonical URL or `ALLOWED_DEV_ORIGINS`; also configure the auth origin separately. |
 | Existing account is missing after extracting ZIP | Restore the original database and secret; the download contains source, not your database. |
-| No account/voice key configured | Add the corresponding server key and restart. |
+| No banking/agent key configured | Add the corresponding server key and restart. |
 | OAuth registration refused | Enable DCR if your client requires it; use native application type for HTTP loopback callbacks. |
 | `OAUTH_RESOURCE_SETUP` | Verify migrations and auth origin/configuration. The failed connection is revoked; create a new connection after fixing configuration. |
-| Microphone permission blocked | Open the app on HTTPS or local loopback and allow microphone access. |
 | Chat or tasks stay queued | Ensure the Grok agent worker is online; `npm run dev` and `npm start` launch it automatically. |
 | Payments stay queued | Ensure the payment worker is online and inspect the Settings heartbeat. |
 | Wallet quarantined | Refresh and inspect its observed balance. Resolve in-flight payments before owner baseline confirmation. |
 | Reconciliation/manual review | Use read-status reconciliation; inspect the upstream receipt before making any new purchase. |
 
 See [verification](verification.md) for what was actually exercised.
+
+Application migration `005_remove_voice` deletes the retired session, transcript, tool-journal, preference and authority-draft tables. Historical task instructions are retained with a `LEGACY` source label. Accounts, text conversations, tasks, allowances and payment records are preserved. Back up the database before upgrading; do not run an older application against schema version 5.

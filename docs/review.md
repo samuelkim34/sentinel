@@ -1,6 +1,6 @@
 # On-site agent update
 
-The current update adds real Grok API execution, on-site setup/chat/voice readiness and migration 003 while preserving the redesigned UI and financial domain checks. It also fixes unguarded document polling callbacks, separates asynchronous auth transactions from domain connections, starts both workers with ordinary dev/start, and removes a stray character from the uploaded GitHub workflow. See [current verification](verification.md).
+The current update adds real Grok API execution, on-site setup/chat and migration 003 while preserving the redesigned UI and financial domain checks. It also fixes unguarded document polling callbacks, separates asynchronous auth transactions from domain connections, starts both workers with ordinary dev/start, and removes a stray character from the uploaded GitHub workflow. See [current verification](verification.md).
 
 ## Previous financial/auth review
 
@@ -16,25 +16,17 @@ OAuth resource creation originally lacked the current human session and could fa
 
 ## Payments and permissions
 
-- Nested transactions use savepoints, so an inner financial/voice mutation rolls back with its outer journal.
+- Nested transactions use savepoints, so an inner financial mutation rolls back with its outer journal.
 - Protected-fund shortfalls count each floor once; enabling a floor cannot undercut committed holds.
 - Merchant-category overrides are isolated per workspace.
 - Finance cannot grant itself business account reads or use business personal-token credentials. Authority promotions and sensitive forms use password confirmation.
-- Member cancellation, account payment records, activity, and voice task access are constrained to permitted work.
+- Member cancellation, account payment records, activity, and task access are constrained to permitted work.
 - Revoked connections invalidate bound leases and prevent still-unsubmitted payment jobs.
 - Paused work can resume with a fresh revision without reusing cancelled immutable proposals.
 - Wallet observations recheck account/customer identity and version after network calls; baselines require fresh observations and no unresolved operations.
 - Receipt completion requires matching identity and exact money. Unrelated or ambiguous receipts keep the hold.
 - Pending reconciliation is bounded and backs off. Missing receipts cannot trigger another provider POST.
 - Interrupted jobs distinguish pre-submission work from recorded financial submissions and observe a recovery grace period.
-
-## Voice
-
-Provider startup failures now close the reserved session and permit retry. Concurrent starts are guarded by a database index and browser lifecycle state. Calls validate strict shared schemas, membership, session/target/token binding and expiry. Their mutation plus replay result commits atomically.
-
-Voice supports shared-state reads, instructions, controlled tasks, pause and authority drafts. It exposes no bank/approval/escalation tool. Draft confirmation uses owner/password/exact-term checks. Transcript opt-out deletes stored text and applies to active sessions. Logout ends server sessions and revokes password-confirmation grants.
-
-The UI now stops actual microphone transmission when muted, clears input frames, cleans up failed/disconnected/expired sessions, maintains resampling position across chunks, discards superseded playback and sends one continuation after all parallel tool outputs.
 
 ## Running and hosting
 

@@ -17,7 +17,7 @@ export async function runWorkerCycle(db: DatabaseSync, now = Date.now()): Promis
   recoverClaimedJobs(db, now);
   expireMandates(db, now);
   releaseExpiredLeases(db, now);
-  expireVoice(db, now);
+  expireReauth(db, now);
   const job = claimJob(db, now);
   if (!job) return;
   try {
@@ -442,10 +442,7 @@ function releaseExpiredLeases(db: DatabaseSync, now: number) {
   }
 }
 
-function expireVoice(db: DatabaseSync, now: number) {
-  run(db, "UPDATE voice_sessions SET state = 'EXPIRED', ended_at = ? WHERE state = 'ACTIVE' AND expires_at <= ?", [now, now]);
-  run(db, "UPDATE authority_drafts SET state = 'EXPIRED' WHERE state = 'PENDING' AND expires_at <= ?", [now]);
-  run(db, "DELETE FROM rate_events WHERE created_at < ?", [now - 86_400_000]);
+function expireReauth(db: DatabaseSync, now: number) {
   run(db, "DELETE FROM reauth_grants WHERE expires_at <= ?", [now]);
 }
 

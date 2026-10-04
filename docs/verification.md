@@ -32,20 +32,19 @@ Lifecycle tests check pause/resume epochs, membership removal, shutdown and lost
 
 Two storage tests verify that acquiring SQLite write intent before auth reads prevents the competing-worker snapshot race, and that file-backed auth and domain connections cannot accidentally share an unfinished transaction.
 
-## Existing financial, auth and voice coverage
+## Existing financial and auth coverage
 
 The original 56 regression cases also pass. They include real Better Auth request handling and OAuth exchange, exact money/overflow handling, workspace isolation, last-owner protection, nested rollback, replay conflicts, protected funds, merchant overrides, finance/member privileges, stale grants, revoked connection leases, pause/resume revisions, malformed provider data, one-attempt bank submissions, mismatched or ambiguous receipts, bounded reconciliation, holds and interrupted job recovery.
 
-Voice coverage includes provider-failure cleanup, one active session per user, strict session/task binding, replay identity, rollback, expiry/membership changes, retention deletion, once-only authority confirmation, streaming 44.1 kHz resampling and ordered parallel tool output. Additional agent tests verify voice readiness for an on-site profile without an external connector verification step.
 
 ## Browser flows
 
-1. Personal user signup and empty onboarding, creation and editing of an on-site agent, reload persistence, pause/resume, honest missing-key chat/voice controls and full server-rendered page visits.
+1. Personal user signup and empty onboarding, creation and editing of an on-site agent, reload persistence, pause/resume, honest missing-key chat controls and full server-rendered page visits.
 2. The same agent configuration flow in a business workspace.
-3. Signup, empty workspace, logout/sign-in, missing-key banking controls and transcript retention on/off.
+3. Signup, empty workspace, logout/sign-in, missing-key banking controls and merchant settings.
 4. Signup/onboarding/sign-in on the explicitly configured localhost alias, including a rejected password followed by a successful retry.
 5. Legacy business registration, browser OAuth sign-in and consent, PKCE code exchange, MCP initialization and revoked-connection rejection. This retains optional legacy compatibility; the ordinary agent UI uses on-site profiles.
-6. A user creates an on-site agent and sends a chat request. The actual agent-worker process calls the Responses transport, executes state/task tools, saves a research task and result, and exposes them after a reload and on the task detail page. Voice readiness is enabled when configured. This test does not open a microphone.
+6. A user creates an on-site agent and sends a chat request. The actual agent-worker process calls the Responses transport, executes state/task tools, saves a research task and result, and exposes them after a reload and on the task detail page.
 
 Flow 6 uses an HTTP fixture loaded only by `playwright.agents.config.ts`. It requires an explicit isolated test key and test-database path. Normal dev/start/build commands never load it. It validates the app/worker/tool/database integration without claiming a live Grok model response. The OAuth client in flow 5 is likewise a test harness, not a native bot provisioned for the user.
 
@@ -78,7 +77,6 @@ Incorrect-password and rejected-origin tests intentionally produce auth warnings
 ## Integration checks still requiring operator access
 
 - Live xAI text-model access, billing, rate limits and actual model/tool behavior were not checked with an operator key.
-- Live xAI ephemeral voice credentials, realtime WebSocket events and microphone/speaker output were not checked with a real key/device.
 - Live Nessie availability, key permissions and current responses were not checked with a bank sandbox key. Adapter tests use controlled responses.
 - Docker/Compose was reviewed but not executed here.
 - The remote GitHub repository was not changed and no hosting deployment was created. Host-specific TLS, proxy, volume and service behavior needs deployment checks.

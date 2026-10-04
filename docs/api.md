@@ -12,7 +12,6 @@ Money form fields use ordinary decimal USD strings such as `"25.00"`. Connector 
 | `GET/POST /api/workspaces` | List memberships / create personal or business workspace |
 | `POST /api/reauth` | `{password}`; five-minute session-bound grant |
 | `POST /api/invitations/:token/accept` | Signed-in recipient, one-time valid invitation |
-| `GET/PUT /api/preferences` | `{retainVoiceTranscripts: boolean}` |
 | `GET /api/configuration` | Provider/configuration flags, never keys |
 | `GET /api/health` | Web liveness |
 | `GET /api/oauth/preview?resource=...` | Current user's active OAuth connection/permission preview |
@@ -52,8 +51,6 @@ These suffixes are under `/api/workspaces/:workspaceId`. Domain checks determine
 | `POST /proposals/:id/approve`, `/reject` | Owner/finance and fresh auth, exact termsHash; business approval separation |
 | `POST /proposals/:id/cancel` | Visible eligible unsubmitted proposal |
 | `POST /proposals/:id/reconcile` | Owner/finance read-only bank-status job |
-| `GET /authority-drafts/:id` | Bound visible draft |
-| `POST /authority-drafts/:id/confirm` | Owner, fresh auth, unexpired pending exact terms |
 
 Example mandate body:
 
@@ -73,13 +70,6 @@ Example mandate body:
 
 Choose a real future expiry at submission time; this example is a shape, not a seeded grant.
 
-## Voice routes
-
-`POST /api/voice/sessions` takes `{workspaceId, registrationId, taskId?}` and returns the short-lived session credential, tool token, allowed functions and audio setup. An active on-site agent connection (or a legacy verified connection) and configured xAI key are required.
-
-`POST /api/voice/sessions/:sessionId/tools` takes `{workspaceId, callId, name, arguments}` and the `x-sentinel-voice-token` header. It requires the current cookie session and exact bound targets. Duplicate identical call IDs replay; changed arguments conflict.
-
-`POST .../:sessionId/end` takes `{workspaceId}`. `POST .../:sessionId/transcript` takes `{workspaceId, speaker, text, final:true}`, the tool token, and requires active opt-in retention to store text.
 
 ## MCP and OAuth discovery
 

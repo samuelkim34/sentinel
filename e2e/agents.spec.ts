@@ -31,7 +31,6 @@ for (const kind of ['PERSONAL','BUSINESS']) test(`${kind.toLowerCase()} users cr
   await expect(page.getByLabel('Agent instructions')).toHaveValue('Be concise and cite recorded facts.');
   await expect(page.getByRole('heading', { name: 'Chat with your agent', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send message', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Talk', exact: true })).toBeDisabled();
   await expect(page.getByText('Native Grok Bot setup')).toHaveCount(0);
   await page.getByLabel('Agent name').fill('Updated agent');
   await page.getByLabel('Agent instructions').fill('Explain uncertainty plainly.');

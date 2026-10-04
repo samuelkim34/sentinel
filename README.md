@@ -1,6 +1,6 @@
 # Sentinel
 
-Sentinel lets individuals and businesses delegate financial work to Grok-powered agents they create, configure and talk to **inside Sentinel**. Humans control account access, protected funds, lifetime allowances and approvals. Agents can explain recorded finances, research those records, queue requested tasks and propose authorized sandbox purchases. A separate payment worker validates and settles eligible purchases through Capital One’s Nessie sandbox.
+Sentinel lets individuals and businesses delegate financial work to Grok-powered agents they create, configure and chat with **inside Sentinel**. Humans control account access, protected funds, lifetime allowances and approvals. Agents can explain recorded finances, research those records, queue requested tasks and propose authorized sandbox purchases. A separate payment worker validates and settles eligible purchases through Capital One’s Nessie sandbox.
 
 A fresh installation starts empty. There are no installed demo agents or sample accounts. The runtime uses the xAI API; it does not provision native bots in the Grok app. Users need a Sentinel account, not a separate Grok bot setup. Test provider fixtures exist only under `test/` and `e2e/` and are never loaded by ordinary startup.
 
@@ -28,12 +28,12 @@ For the previous terminal workflow, `npm ci` followed by `npm run dev` now creat
 
 1. Sign up and create a personal or business workspace. Owners can copy invitation links from Settings for business members and finance reviewers.
 2. Go to **Bots → Create an agent**. Choose a name, purpose, instructions and account read access. Business read grants require an owner. No external Grok account, MCP connection or public tunnel is needed for this flow.
-3. Open the agent to edit configuration, **chat**, view recorded tool calls and runs, or **Talk** using realtime Grok voice. Microphone access needs loopback or HTTPS. No external tool-verification step is required for an on-site agent.
+3. Open the agent to edit configuration, **chat**, and view recorded tool calls and runs. No external tool-verification step is required for an on-site agent.
 4. Use Accounts to provision a Nessie sandbox customer/account after confirming your password. Existing customer linking requires an operator permission: `npm run banking:grant-link -- WORKSPACE_ID CUSTOMER_ID`.
 5. Sync merchants in Settings and confirm categories. Protect required account funds, and grant an agent a bounded lifetime allowance if it should propose purchases. Propose-only is the default.
 6. Create research or purchase work in Tasks, or ask your agent in chat. **Research and conversation only** is the default chat permission. Selecting an allowance explicitly permits a purchase task from that message; auto-within-limits may submit eligible sandbox purchases without another approval.
 7. Inspect task updates and proposals. Requests needing review go to Approvals. Business self-approval checks still apply. A reserved or submitted proposal is not a completed purchase: completion requires a matching persisted bank receipt.
-8. Queue additional task instructions from the task page, chat or voice. Pausing prevents later agent writes and cancels eligible unsubmitted financial work. Submitted payments continue reconciliation.
+8. Queue additional task instructions from the task page or chat. Pausing prevents later agent writes and cancels eligible unsubmitted financial work. Submitted payments continue reconciliation.
 
 Research uses persisted records and user-provided facts; this implementation has no live web-research or retailer-checkout tool. Nessie does not expose product prices. Supply known merchant/amount terms for purchase tasks. The supported financial operation is one USD **sandbox merchant purchase**, not production Capital One customer login, real-money banking or autonomous shopping.
 
@@ -105,7 +105,6 @@ GitHub Pages cannot run this application's server APIs, authentication, database
 - [On-site Grok setup](docs/grok-bot-setup.md)
 - [Architecture, source map and execution controls](docs/architecture.md)
 - [API contracts](docs/api.md)
-- [Voice](docs/voice.md)
 - [Nessie integration](docs/nessie.md)
 - [Operations and backup](docs/operator.md)
 - [Verification evidence and limits](docs/verification.md)

@@ -10,13 +10,12 @@ The operator configures one server-side xAI key. Each user creates an agent thro
 4. Use chat for questions and explicit work requests. The default permits research and conversation. For a purchase request, select an existing owner-granted allowance for that specific message.
 5. Create tasks manually when you prefer exact control over task kind, outcome and allowance. On-site agents pick eligible tasks up automatically while active.
 6. Inspect Recent agent runs and the task's recorded updates, instruction status and proposals. A successful Grok run means that the model run finished, not that a purchase settled.
-7. Use Talk to converse through Grok realtime audio. Voice reads the same configuration and persisted task state plus your own recent text chat. Task and financial permissions remain server-controlled.
 
-Text conversations are stored per user and agent. Other authorized workspace members see shared task actions and task-run summaries, not your chat messages. The last 24 chat messages at or before the current request are provided to the text model. Task runs do not receive a controller's private chat. Voice reads up to 12 recent messages belonging to its current user; it does not inherit an unlimited conversation or hidden reasoning.
+Text conversations are stored per user and agent. Other authorized workspace members see shared task actions and task-run summaries, not your chat messages. The last 24 chat messages at or before the current request are provided to the text model. Task runs do not receive a controller's private chat.
 
 ## Operator configuration
 
-Set `XAI_API_KEY` in `.env.local`, keep it private, and restart Sentinel. `XAI_AGENT_MODEL` defaults to `grok-4.7`; choose another supported Grok model if your account requires it. This model must support the Responses API and function calls. `XAI_VOICE_MODEL` defaults to `grok-voice-latest`.
+Set `XAI_API_KEY` in `.env.local`, keep it private, and restart Sentinel. `XAI_AGENT_MODEL` defaults to `grok-4.7`; choose another supported Grok model if your account requires it. This model must support the Responses API and function calls.
 
 `npm run dev` and `npm start` supervise all three processes. The chat panel shows configured model and agent-worker heartbeat. A missing key prevents chat insertion. A stopped worker leaves already accepted requests queued. Provider/model-access/rate-limit failures produce an explicit failed run with recorded tool activity; no fake response or completion is inserted.
 

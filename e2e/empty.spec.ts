@@ -23,10 +23,10 @@ test("a new account sees an empty workspace", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Create sandbox account" })).toBeDisabled();
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Control plane", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Keep transcripts" }).click();
-  await expect(page.getByText("Currently on.")).toBeVisible();
-  await page.getByRole("button", { name: "Delete and stop storing" }).click();
-  await expect(page.getByText("Currently off.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Merchants", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Voice transcripts", exact: true })).toHaveCount(0);
+  expect((await page.request.post('/api/voice/sessions', { data: {} })).status()).toBe(404);
+  expect((await page.request.get('/api/preferences')).status()).toBe(404);
 });
 
 test("sign-in accepts the explicitly configured localhost origin", async ({ page }) => {

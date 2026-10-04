@@ -22,15 +22,6 @@ export type ConnectorContext = {
   scopes: ReadonlySet<string>;
 };
 
-export type VoiceContext = {
-  kind: "voice";
-  userId: string;
-  workspaceId: string;
-  registrationId: string;
-  voiceSessionId: string;
-  scopes: ReadonlySet<string>;
-};
-
 export type WorkerContext = {
   kind: "worker";
   operationId: string;

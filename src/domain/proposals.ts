@@ -114,7 +114,7 @@ export function queueInstruction(
   human: HumanContext,
   taskId: string,
   textValue: string,
-  source: "HUMAN_UI" | "VOICE",
+  source: "HUMAN_UI",
   now: number,
   requestKey?: string,
 ) {

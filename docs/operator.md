@@ -12,7 +12,7 @@ A matching completed receipt changes the policy balance once and clears its rese
 
 Quarantine indicates an unexplained observed/policy balance difference or a conservative balance problem. Refresh the account, inspect receipts and unresolved operations, then an owner may confirm a fresh baseline with their password. Baseline changes are refused with unresolved payments.
 
-Pause cancels eligible unsubmitted work, drops its hold and lease, and leaves recorded submissions to reconcile. Resuming paused purchase work uses a new revision; old cancelled proposal terms remain immutable. Mandate revocation/expiry cancels eligible unsubmitted tasks. Registration archive and membership removal end affected voice sessions; removed members' connections are revoked.
+Pause cancels eligible unsubmitted work, drops its hold and lease, and leaves recorded submissions to reconcile. Resuming paused purchase work uses a new revision; old cancelled proposal terms remain immutable. Mandate revocation/expiry cancels eligible unsubmitted tasks. Removed members' connections are revoked.
 
 ## People and authority
 
@@ -40,4 +40,4 @@ A model request times out after its configured deadline. Runs have bounded steps
 
 Task instruction events and resume epochs prevent polling loops. A task waiting for human input stays unfinished; a new instruction schedules new work. Waiting-for-review or blocked tasks can accept new instructions before irreversible submission. Revised proposals require current policy and eligible approval. Expired leases for on-site agents are removed without presenting unfinished model work as automatically rerunning.
 
-Server keys are shared operator credentials; users do not need individual Grok accounts. Model/API access failures require operator configuration. Workspace limits are not a provider-dollar cap. Keep database and backups private: text chat and tool results are stored in SQLite and are visible to an operator with filesystem access. Microphone audio is not stored, and voice transcript retention remains opt-in.
+Server keys are shared operator credentials; users do not need individual Grok accounts. Model/API access failures require operator configuration. Workspace limits are not a provider-dollar cap. Keep database and backups private: text chat and tool results are stored in SQLite and are visible to an operator with filesystem access.

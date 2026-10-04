@@ -101,7 +101,6 @@ function dispatch(db: DatabaseSync, activeRun: SqlRow, call: FunctionCall, bindi
     const state = agentState(db, human, ctx.registrationId, now);
     // Chat already receives message-bounded history in its model input. Task
     // output must not be generated from a controller’s private conversation.
-    // The voice gateway separately supplies only its current user’s history.
     return { ...state, recentChat: [] };
   }
   if (name === 'search_products') return { products: listProducts(db, human, args.search) };

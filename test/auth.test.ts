@@ -94,12 +94,10 @@ it("OAuth code exchange produces a resource-bound token accepted by MCP and inva
   globalThis.fetch = originalFetch;
 });
 
-it("successful sign-out ends voice sessions and removes the password-confirmation grant", async () => {
+it("successful sign-out removes the password-confirmation grant", async () => {
   const db = getDb(); const session = await auth.api.getSession({ headers: new Headers({ cookie }) }); assert.ok(session);
   run(db, "INSERT INTO reauth_grants (session_id, user_id, expires_at) VALUES (?, ?, ?)", [session.session.id, userId, Date.now() + 60000]);
-  run(db, "INSERT INTO voice_sessions (id, user_id, workspace_id, registration_id, token_hash, allowed_functions, state, started_at, expires_at) VALUES ('signout-voice', ?, 'signout-workspace', 'signout-registration', 'fixture-token-hash', '[]', 'ACTIVE', ?, ?)", [userId, Date.now(), Date.now() + 60000]);
   const { POST } = await import("../src/app/api/auth/[...all]/route");
   const response = await POST(new Request(`${base}/api/auth/sign-out`, { method: "POST", headers: { origin: base, cookie, "content-type": "application/json" }, body: "{}" }));
   assert.equal(response.status, 200); assert.equal(db.prepare("SELECT COUNT(*) AS c FROM reauth_grants WHERE session_id = ?").get(session.session.id)?.c, 0);
-  assert.equal(db.prepare("SELECT state FROM voice_sessions WHERE id = 'signout-voice'").get()?.state, "ENDED");
 });

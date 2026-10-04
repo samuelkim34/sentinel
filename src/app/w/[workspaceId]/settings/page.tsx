@@ -38,13 +38,9 @@ export default function SettingsPage() {
     queryKey: ["merchants", workspaceId],
     queryFn: () => api<{ merchants: Merchant[] }>(`/api/workspaces/${workspaceId}/merchants`),
   });
-  const prefs = useQuery({
-    queryKey: ["prefs"],
-    queryFn: () => api<{ retainVoiceTranscripts: boolean }>("/api/preferences"),
-  });
   const config = useQuery({
     queryKey: ["config"],
-    queryFn: () => api<{ nessieConfigured: boolean; voiceConfigured: boolean; agentsConfigured: boolean; agentModel: string; nessieBaseHost: string; voiceModel: string; bankFreshnessSeconds: number }>("/api/configuration"),
+    queryFn: () => api<{ nessieConfigured: boolean; agentsConfigured: boolean; agentModel: string; nessieBaseHost: string; bankFreshnessSeconds: number }>("/api/configuration"),
   });
   const invite = useMutation({
     mutationFn: async (role: string) => {
@@ -63,10 +59,6 @@ export default function SettingsPage() {
     }); },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["members", workspaceId] }),
     onSettled: () => setPassword(""),
-  });
-  const retention = useMutation({
-    mutationFn: (retainVoiceTranscripts: boolean) => api("/api/preferences", { method: "PUT", body: JSON.stringify({ retainVoiceTranscripts }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["prefs"] }),
   });
   const sync = useMutation({
     mutationFn: (prepareSandbox: boolean) => api<{ imported: number; setup: { created: number; renamed: number; existing: number } | null }>(`/api/workspaces/${workspaceId}/merchants/sync`, { method: "POST", body: JSON.stringify({ prepareSandbox }) }),
@@ -101,17 +93,12 @@ export default function SettingsPage() {
 
       {current?.role === "owner" && current.kind === "BUSINESS" && <Field label="Confirm password for adding owner or finance authority"><PasswordConfirmation value={password} onChange={(event) => setPassword(event.target.value)} /></Field>}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <p className="text-[0.7rem] uppercase tracking-[0.14em] text-slate-500">Worker</p>
           <p className="mt-3 text-3xl font-medium text-ink">{overview.data?.worker.dueJobs ?? "—"}</p>
           <p className="mt-2 text-sm text-slate-600">Due jobs in this workspace</p>
           <p className="mt-3 text-sm text-slate-600">Last heartbeat {formatWhen(overview.data?.worker.lastSeenAt)}.</p>
-        </Card>
-        <Card className="p-5">
-          <p className="text-[0.7rem] uppercase tracking-[0.14em] text-slate-500">Voice retention</p>
-          <p className="mt-3 text-3xl font-medium text-ink">{prefs.data?.retainVoiceTranscripts ? "On" : "Off"}</p>
-          <p className="mt-2 text-sm text-slate-600">Sentinel does not store microphone audio.</p>
         </Card>
         <Card className="p-5">
           <p className="text-[0.7rem] uppercase tracking-[0.14em] text-slate-500">Runtime</p>
@@ -121,16 +108,6 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      <Card className="p-5">
-        <h2 className="text-xl font-semibold text-ink">Voice transcripts</h2>
-        <p className="mt-2 text-sm text-slate-600">Retention is off unless you turn it on. Sentinel does not store microphone audio. Turning retention off deletes stored transcript text for your account.</p>
-        <p className="mt-3 text-sm text-slate-600">Currently {prefs.data?.retainVoiceTranscripts ? "on" : "off"}.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" variant="quiet" onClick={() => retention.mutate(true)}>Keep transcripts</Button>
-          <Button type="button" variant="quiet" onClick={() => retention.mutate(false)}>Delete and stop storing</Button>
-        </div>
-        {retention.isError ? <p role="alert" className="mt-3">{retention.error.message}</p> : null}
-      </Card>
 
       {current?.role === "owner" && current.kind === "BUSINESS" ? (
         <Card className="p-5">
