@@ -24,9 +24,16 @@ export default function AccountsPage() {
   const config = useQuery({ queryKey: ["config"], queryFn: () => api<{ nessieConfigured: boolean }>("/api/configuration") });
   const create = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const { password, ...details } = body;
+      const { password, street, ...details } = body;
+      const address = String(street ?? "").trim();
+      const parts = address.split(/\s+/).filter(Boolean);
+      const streetNumber = parts.shift() ?? "";
+      const streetName = parts.join(" ");
       await api("/api/reauth", { method: "POST", body: JSON.stringify({ password }) });
-      return api(`/api/workspaces/${workspaceId}/banking/provision`, { method: "POST", body: JSON.stringify(details) });
+      return api(`/api/workspaces/${workspaceId}/banking/provision`, {
+        method: "POST",
+        body: JSON.stringify({ ...details, streetNumber, streetName }),
+      });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts", workspaceId] }),
   });
@@ -67,8 +74,16 @@ export default function AccountsPage() {
           const form = new FormData(event.currentTarget);
           create.mutate(Object.fromEntries(form.entries()));
         }}>
-          {["firstName", "lastName", "streetNumber", "streetName", "city", "state", "zip", "nickname"].map((name) => (
-            <Field key={name} label={name}><Input name={name} required /></Field>
+          {[
+            { name: "firstName", label: "First name" },
+            { name: "lastName", label: "Last name" },
+            { name: "street", label: "Street address" },
+            { name: "city", label: "City" },
+            { name: "state", label: "State" },
+            { name: "zip", label: "ZIP" },
+            { name: "nickname", label: "Nickname" },
+          ].map(({ name, label }) => (
+            <Field key={name} label={label}><Input name={name} required /></Field>
           ))}
           <Field label="Initial balance"><Input name="balance" required placeholder="100.00" /></Field>
           <Field label="Confirm your password"><Input name="password" type="password" autoComplete="current-password" required /></Field>
