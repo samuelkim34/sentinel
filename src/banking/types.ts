@@ -90,6 +90,7 @@ export interface BankingAdapter {
   getAccount(externalId: string): Promise<NormalizedAccount>;
   listCustomerAccounts(customerId: string): Promise<NormalizedAccount[]>;
   listMerchants(query: MerchantQuery): Promise<MerchantPage>;
+  prepareSandboxMerchants?(): Promise<{ created: number; renamed: number; existing: number }>;
   listPurchases(accountId: string, cursor?: string): Promise<PurchasePage>;
   listBills(accountId: string): Promise<BillPage>;
   listTransfers(accountId: string): Promise<TransferPage>;

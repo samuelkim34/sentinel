@@ -9,6 +9,7 @@ import { assertFreshAuth, assertOwner, audit, requireHuman, type HumanContext } 
 import { id } from "./ids";
 import { requireWorkspace } from "./workspaces";
 import { getEnv } from "../server/env";
+import { suggestedMerchantCategory } from "../banking/sandbox-merchant-catalog";
 
 export async function provisionSandboxAccount(db: DatabaseSync, human: HumanContext, input: ProvisionInput, now: number) {
   const member = requireHuman(db, human);
@@ -361,12 +362,19 @@ export function updateProtection(
   });
 }
 
-export async function syncMerchants(db: DatabaseSync, human: HumanContext, now: number) {
+export async function syncMerchants(db: DatabaseSync, human: HumanContext, now: number, prepareSandbox = false) {
   const member = requireHuman(db, human);
   assertOwner(member);
   const adapter = getBankingAdapter();
   let page;
-  try { page = await adapter.listMerchants({ limit: 200 }); }
+  let setup: { created: number; renamed: number; existing: number } | null = null;
+  try {
+    if (prepareSandbox) {
+      if (!adapter.prepareSandboxMerchants) throw unavailable("MERCHANT_SETUP_UNAVAILABLE", "Sandbox merchant setup is unavailable. Set NESSIE_API_KEY on the server and restart Sentinel.");
+      setup = await adapter.prepareSandboxMerchants();
+    }
+    page = await adapter.listMerchants({ limit: 1000 });
+  }
   catch (error) {
     if (error instanceof BankOperationError) throw unavailable(`MERCHANT_SYNC_${error.kind}`, `Merchant sync failed: ${error.message} Check the server's Nessie key and base URL.`);
     throw error;
@@ -391,7 +399,10 @@ export async function syncMerchants(db: DatabaseSync, human: HumanContext, now: 
         );
       }
     }
-    return { imported: page.merchants.length };
+    if (setup) audit(db, { workspaceId: human.workspaceId, actorKind: "human", actorUserId: human.userId,
+      eventType: "SANDBOX_MERCHANTS_PREPARED", subjectType: "workspace", subjectId: human.workspaceId,
+      detail: setup, at: now });
+    return { imported: page.merchants.length, setup };
   });
 }
 
@@ -434,15 +445,44 @@ export function confirmMerchantCategory(
 
 export function listMerchants(db: DatabaseSync, human: HumanContext, search?: string) {
   requireHuman(db, human);
-  const items = rows(db, "SELECT * FROM merchant_catalog ORDER BY label ASC LIMIT 100");
+  const items = rows(db, "SELECT * FROM merchant_catalog ORDER BY label ASC LIMIT 1000");
   return items
     .map((item) => ({
       id: text(item.id),
       label: text(item.label),
       rawCategory: text(item.raw_category),
+      suggestedCategory: suggestedMerchantCategory(text(item.label)),
       verifiedCategory: effectiveCategory(db, human.workspaceId, text(item.id), text(item.verified_category)),
     }))
     .filter((item) => !search || item.label.toLowerCase().includes(search.toLowerCase()));
+}
+
+// Confirm only the exact suggestions reviewed in the browser. Preserve any
+// category another owner has confirmed since the page was loaded.
+export function confirmSuggestedMerchantCategories(db: DatabaseSync, human: HumanContext, input: unknown, now: number) {
+  return atomic(db, () => {
+    assertOwner(requireHuman(db, human));
+    if (!Array.isArray(input) || input.length < 1 || input.length > 1000) throw invalid("INVALID_SUGGESTIONS", "Choose between 1 and 1000 merchant suggestions.");
+    const seen = new Set<string>();
+    const selected = input.map(value => {
+      if (!value || typeof value !== "object" || typeof value.id !== "string" || typeof value.category !== "string" || seen.has(value.id)) {
+        throw invalid("INVALID_SUGGESTIONS", "Each suggestion needs a unique merchant and category.");
+      }
+      seen.add(value.id);
+      const merchant = row(db, "SELECT id, label, verified_category FROM merchant_catalog WHERE id = ?", [value.id]);
+      if (!merchant || suggestedMerchantCategory(text(merchant.label)) !== value.category) {
+        throw conflict("SUGGESTIONS_CHANGED", "Merchant suggestions changed. Refresh and review them again.");
+      }
+      return { id: value.id, category: value.category as MerchantCategory, fallback: text(merchant.verified_category) };
+    });
+    let confirmed = 0;
+    for (const merchant of selected) {
+      if (effectiveCategory(db, human.workspaceId, merchant.id, merchant.fallback) !== "UNKNOWN") continue;
+      confirmMerchantCategory(db, human, merchant.id, merchant.category, now);
+      confirmed++;
+    }
+    return { confirmed, skipped: selected.length - confirmed };
+  });
 }
 
 export function effectiveCategory(db: DatabaseSync, workspaceId: string, merchantId: string, fallback: string): MerchantCategory {

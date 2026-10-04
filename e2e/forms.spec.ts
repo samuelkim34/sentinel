@@ -150,15 +150,35 @@ test('external revoke disappears after success and remains revoked after reload'
 test('merchant sync displays counts, real errors and an empty provider result without losing the catalog', async ({ page }) => {
   await signup(page);
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
-  await expect(page.getByText(/No merchants in the catalog yet/)).toBeVisible();
-  await page.getByRole('button', { name: 'Sync Nessie merchants', exact: true }).click();
+  await expect(page.getByText(/No merchants yet/)).toBeVisible();
+  await page.getByRole('button', { name: 'Import existing only', exact: true }).click();
   await expect(page.getByText('Sync completed: 2 merchants imported or updated.', { exact: true })).toBeVisible();
   await expect(page.getByText('First bank merchant · UNKNOWN', { exact: true })).toBeVisible();
   await expect(page.getByText('Second bank merchant · UNKNOWN', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Sync Nessie merchants', exact: true }).click();
+  await page.getByRole('button', { name: 'Import existing only', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: /Merchant sync failed: Nessie rejected the request \(401\)/ })).toBeVisible();
   await expect(page.getByText('First bank merchant · UNKNOWN', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Sync Nessie merchants', exact: true }).click();
-  await expect(page.getByText('Sync completed. Nessie returned no merchants for this API key. Check the merchant data in your Nessie sandbox.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Import existing only', exact: true }).click();
+  await expect(page.getByText('Nessie returned no merchants. Click Sync Nessie merchants to create the sample catalog.', { exact: true })).toBeVisible();
   await expect(page.getByText('First bank merchant · UNKNOWN', { exact: true })).toBeVisible();
+});
+
+test('merchant setup creates the catalog in Settings and confirms suggested categories together', async ({ page }) => {
+  await signup(page);
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Sync Nessie merchants', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Created 50, renamed 0, already present 0.' })).toBeVisible();
+  await expect(page.getByText('Staples · UNKNOWN · Suggested: OFFICE', { exact: true })).toBeVisible();
+  await page.getByLabel('Category for Target', { exact: true }).selectOption('OFFICE');
+  await expect(page.getByText('Target · OFFICE', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm 49 suggested categories', exact: true }).click();
+  await expect(page.getByText('Confirmed 49 categories. 0 already confirmed categories were kept.', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Category for Staples', { exact: true })).toHaveValue('OFFICE');
+  await expect(page.getByLabel('Category for Target', { exact: true })).toHaveValue('OFFICE');
+  await expect(page.getByRole('button', { name: /Confirm \d+ suggested categories/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Sync Nessie merchants', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Created 0, renamed 0, already present 50.' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Category for Staples', { exact: true })).toHaveValue('OFFICE');
+  await expect(page.getByLabel('Category for Target', { exact: true })).toHaveValue('OFFICE');
 });

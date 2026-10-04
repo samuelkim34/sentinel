@@ -5,8 +5,8 @@
 ## Use
 
 1. Start Sentinel from the updated project folder with `npm run dev`.
-2. If needed, run `npm run banking:populate-merchants`, then Settings → Sync Nessie merchants.
-3. Confirm merchant categories in Settings. Products appear automatically under Sandbox products; no separate product import is needed.
+2. Open Settings → Sync Nessie merchants. Missing sample merchants are created automatically; no terminal command is needed.
+3. Review and confirm the suggested merchant categories together in Settings, or assign them individually. Products appear automatically under Sandbox products; no separate product import is needed.
 4. Create or select a suitable active agent allowance. In agent chat select Purchase permission for this message, then say “Buy an eraser from Staples under $10.” Alternatively create a Purchase task with that desired outcome and allowance. Queue instruction is only for follow-ups.
 5. Review the proposal/payment status. No purchase is complete merely because Grok says so.
 

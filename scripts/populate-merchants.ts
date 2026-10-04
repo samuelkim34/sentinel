@@ -1,6 +1,4 @@
-import { closeSync, mkdirSync, openSync, rmSync } from "node:fs";
-import { createHash } from "node:crypto";
-import { dirname, join, resolve } from "node:path";
+import { withMerchantSetupLock } from "../src/banking/merchant-setup-lock";
 import { loadEnvFiles } from "../src/server/load-env";
 import { NessieClient } from "../src/banking/nessie-client";
 import { BankOperationError } from "../src/banking/types";
@@ -21,19 +19,7 @@ async function main() {
     throw new Error("Use an HTTPS NESSIE_BASE_URL containing only the server origin.");
   }
   const dryRun = args.includes("--dry-run");
-  const directory = dirname(resolve(process.env.SENTINEL_DB_PATH || "data/sentinel.sqlite"));
-  const fingerprint = createHash("sha256").update(baseUrl.origin + "\0" + key).digest("hex").slice(0, 16);
-  const lockPath = join(directory, `.merchant-setup-${fingerprint}.lock`);
-  let lock: number | undefined;
-  if (!dryRun) {
-    mkdirSync(directory, { recursive: true });
-    try { lock = openSync(lockPath, "wx", 0o600); }
-    catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error(`Merchant setup is already running or was interrupted. Check its output and the Nessie catalog before removing the lock at ${lockPath}.`);
-      throw error;
-    }
-  }
-  try {
+  const populate = async () => {
     console.log(`${dryRun ? "Preview" : "Populate"}: ${US_MERCHANT_CATALOG.length} business names on ${baseUrl.origin}`);
     console.log("Sandbox records only. New records use a shared placeholder address, not actual branch locations.");
     const client = new NessieClient({ baseUrl: baseUrl.origin, apiKey: key });
@@ -43,9 +29,9 @@ async function main() {
     });
     console.log(`${dryRun ? "Planned" : "Done"}: ${result.created} new, ${result.renamed} renamed, ${result.existing} already present.`);
     console.log(dryRun ? "Run without --dry-run to apply these changes." : "Open Sentinel → Settings → Sync Nessie merchants, then confirm the categories you want your agents to use.");
-  } finally {
-    if (lock !== undefined) { closeSync(lock); rmSync(lockPath); }
-  }
+  };
+  if (dryRun) await populate();
+  else await withMerchantSetupLock({ baseUrl: baseUrl.origin, apiKey: key, dbPath: process.env.SENTINEL_DB_PATH || "data/sentinel.sqlite" }, populate);
 }
 
 void main().catch(error => {
