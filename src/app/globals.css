@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+:root {
+  --font-plex: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-plex-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ink: #142033;
+  --paper: #f6f4ef;
+  --panel: #ffffff;
+  --line: #d7d1c6;
+  --nav: #101820;
+  --nav-ink: #e7eef6;
+  --blue: #1d4ed8;
+  --blue-ink: #ffffff;
+  --good: #166534;
+  --warn: #92400e;
+  --bad: #9f1239;
+  --muted: #5c6570;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-nav: var(--nav);
+  --color-blue: var(--blue);
+  --font-sans: var(--font-plex);
+  --font-mono: var(--font-plex-mono);
+}
+
+html { color-scheme: light; }
+body { background: var(--paper); color: var(--ink); }
+:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

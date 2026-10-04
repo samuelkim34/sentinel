@@ -1,0 +1,51 @@
+import { expect, test } from "@playwright/test";
+
+test("a new account sees an empty workspace", async ({ page }) => {
+  const email = `owner-${Date.now()}@example.com`;
+  await page.goto("/sign-up");
+  await page.getByLabel("Name").fill("Avery Chen");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByLabel("Workspace name").fill("Household");
+  await page.getByRole("button", { name: "Create workspace" }).click();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(page.getByText("No account connected")).toBeVisible();
+  await page.getByRole("link", { name: "Bots", exact: true }).click();
+  await expect(page.getByText("No Grok Bot is registered.")).toBeVisible();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await page.getByRole("link", { name: "Accounts", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Create sandbox account" })).toBeDisabled();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Keep transcripts" }).click();
+  await expect(page.getByText("Currently on.")).toBeVisible();
+  await page.getByRole("button", { name: "Delete and stop storing" }).click();
+  await expect(page.getByText("Currently off.")).toBeVisible();
+});
+
+test("sign-in accepts the explicitly configured localhost origin", async ({ page }) => {
+  const email = `alias-${Date.now()}@example.com`;
+  await page.goto("http://localhost:43119/sign-up");
+  await page.getByLabel("Name", { exact: true }).fill("Alias user");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Create a workspace" })).toBeVisible();
+  await page.getByLabel("Workspace name").fill("Alias workspace");
+  await page.getByRole("button", { name: "Create workspace" }).click();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("incorrect-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.locator("p[role=alert]")).toContainText(/password|credential/i);
+  await page.getByLabel("Password").fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+});

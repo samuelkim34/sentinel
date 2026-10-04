@@ -1,0 +1,54 @@
+{
+  "name": "sentinel",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24.15 <25"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "migrate": "node --import tsx scripts/migrate.ts",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/start.mjs",
+    "worker": "node --import tsx src/worker/main.ts",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:e2e": "playwright test",
+    "banking:grant-link": "node --import tsx scripts/grant-link.ts"
+  },
+  "dependencies": {
+    "@better-auth/oauth-provider": "1.7.7",
+    "@modelcontextprotocol/client": "2.3.0",
+    "@modelcontextprotocol/server": "2.3.0",
+    "@radix-ui/react-dialog": "1.1.15",
+    "@radix-ui/react-label": "2.1.7",
+    "@radix-ui/react-select": "2.2.6",
+    "@radix-ui/react-slot": "1.2.3",
+    "@radix-ui/react-tabs": "1.1.13",
+    "@tanstack/react-query": "5.90.2",
+    "@xyflow/react": "12.8.6",
+    "better-auth": "1.7.7",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "0.544.0",
+    "next": "16.3.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwind-merge": "3.3.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "24.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "tailwindcss": "^4",
+    "tsx": "4.20.6",
+    "typescript": "^5"
+  }
+}
