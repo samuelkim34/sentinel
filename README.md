@@ -4,28 +4,25 @@ Sentinel lets individuals and businesses delegate financial work to Grok-powered
 
 A fresh installation starts empty. There are no installed demo agents or sample accounts. The runtime uses the xAI API; it does not provision native bots in the Grok app. Users need a Sentinel account, not a separate Grok bot setup. Test provider fixtures exist only under `test/` and `e2e/` and are never loaded by ordinary startup.
 
-## Run locally
+## Guided local launch
 
-Use **Node 24.15 or newer in the 24 release line**. Node 26 is not supported by this project's declared engine. From the extracted `sentinel-main` folder:
+Install **Node.js 24.15 or newer in the 24 release line**, download and extract this repository, then open the launcher for your computer:
 
-```bash
-npm ci
-npm run setup
-npm run dev
-```
+| Computer | Launcher |
+| --- | --- |
+| Windows | `Start-Sentinel.cmd` |
+| macOS | `Start-Sentinel.command` |
+| Linux | `Start-Sentinel.sh` — select **Run in Terminal** in your file manager |
 
-Open **http://127.0.0.1:43117**. Setup generates a private `.env.local` and applies migrations. Dev starts the web app, Grok agent worker and payment worker together. Ctrl+C stops them.
+The launcher installs the pinned dependencies, creates private local configuration, opens a local setup page for missing Nessie/xAI API keys, migrates the database, and starts the web app plus both workers. Once ready, Sentinel opens in your browser. Keep the launcher window open; Ctrl+C stops it. Later launches reuse configuration and install dependencies again only if the lockfile or Node runtime changed.
 
-The **site operator** adds these values to `.env.local` once and restarts:
+Your operating system may require granting execute permission or approving a downloaded script before it opens. Node and npm must already be installed; the launcher does not install system software or bypass OS security. If your file manager cannot run scripts, the equivalent single command from the project folder is `node scripts/launch.mjs` (or `npm run launch`).
 
-```dotenv
-XAI_API_KEY=your-xai-api-key
-XAI_AGENT_MODEL=grok-4.7
-NESSIE_API_KEY=your-nessie-sandbox-key
-NESSIE_BASE_URL=https://api.nessieisreal.com
-```
+Each installation needs its own operator-provided Nessie sandbox and xAI keys. The private setup page listens only on this computer and is protected by a one-time random link. Existing keys are never displayed in its form. Keys and databases are excluded from GitHub. A GitHub download cannot include somebody else's accounts, agents, secrets or xAI credits.
 
-Keep keys on the server. Users never enter them into agent forms. The text model is configurable for the operator's available xAI model access. The Grok voice model has its own `XAI_VOICE_MODEL` setting. Without keys, sign-up, sign-in, workspaces and agent configuration work; chat/execution/voice and banking report the missing configuration.
+New local configuration enables whole-dollar sandbox prices and simulated completion with a separate Sentinel spending ledger. Existing explicit settings, including `false`, are preserved. Existing pending payments are not converted or resubmitted. No demo agents or accounts are created.
+
+For the previous terminal workflow, `npm ci` followed by `npm run dev` now creates missing local defaults automatically. `npm run setup` remains available separately. For hosted production use, follow [deployment instructions](docs/deployment.md); the local launcher is not a hosting service.
 
 ## Use the app
 

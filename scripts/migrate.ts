@@ -1,4 +1,5 @@
 import { loadEnvFiles } from "../src/server/load-env";
+import { safeStartupMessage } from "./local-config.mjs";
 
 loadEnvFiles();
 
@@ -11,6 +12,6 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.name : "migration failed");
+  console.error(`Migration failed: ${safeStartupMessage(error)}`);
   process.exit(1);
 });
