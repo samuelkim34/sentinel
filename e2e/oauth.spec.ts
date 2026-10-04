@@ -16,20 +16,17 @@ test("a business owner's browser completes sign-in, consent and PKCE for its MCP
   await page.getByLabel("Workspace name").fill("OAuth business");
   await page.getByRole("combobox", { name: "Kind", exact: true }).selectOption("BUSINESS");
   await page.getByRole("button", { name: "Create workspace" }).click();
-  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect a bank account" })).toBeVisible();
   const workspaceId = new URL(page.url()).pathname.split("/")[2];
   await page.getByRole("link", { name: "Bots", exact: true }).click();
-  await page.getByLabel("Name", { exact: true }).fill("User-created registration");
-  await page.getByLabel("Purpose").fill("Check the connection consent flow");
-  await page.getByRole("button", { name: "Save registration" }).click();
-  await page.getByRole("link", { name: "Open setup" }).click();
-  await expect(page.getByRole("button", { name: "Create personal token" })).toHaveCount(0);
-  const creation = page.waitForResponse((response) => response.url().includes("/connections") && response.request().method() === "POST");
-  await page.getByRole("button", { name: "Create OAuth connection" }).click();
-  const creationResponse = await creation;
+  // External OAuth remains an optional compatibility API; the product's default
+  // agent creation flow now runs entirely on-site.
+  const legacy = await page.request.post(`${origin}/api/workspaces/${workspaceId}/registrations`, { headers: { origin }, data: { name: "User-created registration", purpose: "Check the optional connection consent flow", walletIds: [] } });
+  expect(legacy.status()).toBe(201);
+  const registration = await legacy.json() as { id: string };
+  const creationResponse = await page.request.post(`${origin}/api/workspaces/${workspaceId}/registrations/${registration.id}/connections`, { headers: { origin }, data: { mode: "OAUTH" } });
   expect(creationResponse.status()).toBe(201);
   const connection = await creationResponse.json() as { id: string; resourceUri: string };
-  await expect(page.getByText(connection.resourceUri, { exact: true })).toBeVisible();
 
   // The anonymous API context models a native MCP client, not the owner's browser.
   const redirectUri = "http://127.0.0.1:49999/callback";
@@ -39,10 +36,10 @@ test("a business owner's browser completes sign-in, consent and PKCE for its MCP
   const verifier = randomBytes(32).toString("base64url");
   const query = new URLSearchParams({ client_id: client.client_id, redirect_uri: redirectUri, response_type: "code", scope: "context:read tasks:read tasks:update proposals:write", resource: connection.resourceUri, state: "browser-fixture-state", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" });
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome back", exact: true })).toBeVisible();
   await page.route(`${redirectUri}**`, (route) => route.fulfill({ status: 200, contentType: "text/plain", body: "Test native client received the code" }));
   await page.goto(`${origin}/api/auth/oauth2/authorize?${query}`);
-  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome back", exact: true })).toBeVisible();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("correct-horse-battery");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();

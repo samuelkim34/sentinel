@@ -5,7 +5,7 @@ import { getEnv } from "../server/env";
 import { migrateApplication } from "./migrate";
 import { openDatabase } from "./sql";
 
-const globalForDb = globalThis as unknown as { sentinelDb?: DatabaseSync; sentinelDbPath?: string };
+const globalForDb = globalThis as unknown as { sentinelDb?: DatabaseSync; sentinelDbPath?: string; sentinelAuthDb?: DatabaseSync; sentinelAuthDbPath?: string };
 
 export function getDb(): DatabaseSync {
   const path = getEnv().SENTINEL_DB_PATH;
@@ -19,7 +19,24 @@ export function getDb(): DatabaseSync {
 }
 
 export function closeDb(): void {
+  globalForDb.sentinelAuthDb?.close();
+  globalForDb.sentinelAuthDb = undefined;
+  globalForDb.sentinelAuthDbPath = undefined;
   globalForDb.sentinelDb?.close();
   globalForDb.sentinelDb = undefined;
   globalForDb.sentinelDbPath = undefined;
+}
+
+export function getAuthDb(): DatabaseSync {
+  const path = getEnv().SENTINEL_DB_PATH;
+  // An in-memory database is intentionally shared by isolated unit tests.
+  // File-backed deployments use a separate connection to the same database:
+  // synchronous domain savepoints must never join an async auth transaction.
+  if (path === ':memory:') return getDb();
+  if (globalForDb.sentinelAuthDb && globalForDb.sentinelAuthDbPath === path) return globalForDb.sentinelAuthDb;
+  getDb();
+  const db = openDatabase(path);
+  globalForDb.sentinelAuthDb = db;
+  globalForDb.sentinelAuthDbPath = path;
+  return db;
 }

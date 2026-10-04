@@ -21,12 +21,12 @@ export default function ActivityPage() {
   const graph = useQuery({
     queryKey: ["activity", workspaceId],
     queryFn: () => api<Graph>(`/api/workspaces/${workspaceId}/activity-graph`),
-    refetchInterval: () => (document.hidden ? false : 10000),
+    refetchInterval: 10000,
   });
   const events = useQuery({
     queryKey: ["events", workspaceId],
     queryFn: () => api<EventPage>(`/api/workspaces/${workspaceId}/events`),
-    refetchInterval: () => (document.hidden ? false : 10000),
+    refetchInterval: 10000,
   });
 
   const nodes = (graph.data?.nodes ?? []).map((item) => ({

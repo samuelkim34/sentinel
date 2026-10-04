@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { centsToDollarNumber, dollarsToCents } from "../contracts/money";
-import { BankOperationError, type NormalizedAccount, type PurchaseReceipt } from "./types";
+import { BankOperationError, type MerchantRecord, type NormalizedAccount, type PurchaseReceipt } from "./types";
 
 const accountSchema = z.object({
   _id: z.string().min(1),
@@ -30,6 +30,18 @@ const createdSchema = z.object({
   message: z.string().optional(),
   objectCreated: z.record(z.string(), z.unknown()).optional(),
 }).passthrough();
+
+const merchantCreateSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  category: z.string().trim().min(1).max(100),
+  address: z.object({
+    street_number: z.string().min(1), street_name: z.string().min(1),
+    city: z.string().min(1), state: z.string().regex(/^[A-Z]{2}$/), zip: z.string().regex(/^\d{5}$/),
+  }),
+  geocode: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }),
+});
+
+export type SandboxMerchantInput = z.infer<typeof merchantCreateSchema>;
 
 export type NessieClientOptions = {
   baseUrl: string;
@@ -107,14 +119,78 @@ export class NessieClient {
     return this.normalizeAccount(body);
   }
 
-  async listMerchants(): Promise<Array<{ externalId: string; label: string; rawCategory: string }>> {
-    const body = await this.request("GET", "/merchants");
-    return requireList(body).map((item) => this.normalizeMerchant(item));
+  async listMerchants(limit = 200, options: { requireComplete?: boolean } = {}): Promise<MerchantRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new BankOperationError("INVALID_RESPONSE", "Use a merchant limit between 1 and 1000.");
+    const merchants: Array<{ externalId: string; label: string; rawCategory: string }> = [];
+    const seen = new Set<string>();
+    let path: string | null = "/merchants";
+    while (path && merchants.length < limit) {
+      if (seen.has(path) || seen.size >= 10) throw new BankOperationError("INVALID_RESPONSE", "Nessie merchant pagination did not finish within the request limit.");
+      seen.add(path);
+      const body = await this.request("GET", path);
+      const page = merchantPage(body);
+      merchants.push(...page.data.map(item => this.normalizeMerchant(item)));
+      path = page.next ? this.merchantPagePath(page.next) : null;
+    }
+    if (options.requireComplete && (path || merchants.length > limit)) {
+      throw new BankOperationError("INVALID_RESPONSE", "The merchant catalog exceeds the setup scan limit. No merchants were changed.");
+    }
+    return merchants.slice(0, limit);
+  }
+
+  private merchantPagePath(next: string): string {
+    const base = new URL(this.baseUrl + "/merchants");
+    let url: URL;
+    try { url = new URL(next, base); }
+    catch { throw new BankOperationError("INVALID_RESPONSE", "Nessie returned an invalid merchant page."); }
+    // Older pagination metadata may use http even on an HTTPS request. Keep
+    // the configured HTTPS origin and never forward its key to another host.
+    if (base.protocol === 'https:' && url.protocol === 'http:' && url.hostname === base.hostname && !url.port) url.protocol = 'https:';
+    if (url.origin !== base.origin || url.pathname !== base.pathname || url.username || url.password) throw new BankOperationError("INVALID_RESPONSE", "Nessie returned an unexpected merchant page location.");
+    url.searchParams.delete('key');
+    return url.pathname + url.search;
   }
 
   async getMerchant(merchantId: string): Promise<{ externalId: string; label: string; rawCategory: string }> {
     const body = await this.request("GET", `/merchants/${encodeURIComponent(merchantId)}`);
     return this.normalizeMerchant(body);
+  }
+
+  // Operator-only sandbox setup. These methods are not exposed as agent tools.
+  async createSandboxMerchant(input: SandboxMerchantInput): Promise<MerchantRecord> {
+    const validated = merchantCreateSchema.safeParse(input);
+    if (!validated.success) throw new BankOperationError("REJECTED", "Use a merchant name, category, address and valid coordinates.");
+    const body = await this.request("POST", "/merchants", validated.data, { retry: false });
+    const parsed = createdSchema.safeParse(body);
+    const createdId = (parsed.success ? stringField(parsed.data.objectCreated?._id) : null) || accountLikeId(body);
+    if (!createdId) throw new BankOperationError("UNKNOWN", "Nessie returned no verifiable merchant id. Check the catalog before repeating creation.");
+    const merchant = await this.getMerchant(createdId);
+    if (merchant.externalId !== createdId || merchant.label !== validated.data.name) {
+      throw new BankOperationError("UNKNOWN", "The created merchant did not match its readback. Check Nessie before repeating creation.");
+    }
+    return merchant;
+  }
+
+  async renameSandboxMerchant(merchantId: string, expectedName: string, name: string): Promise<MerchantRecord> {
+    const path = `/merchants/${encodeURIComponent(merchantId)}`;
+    const parsed = merchantSchema.safeParse(await this.request("GET", path));
+    const target = name.trim();
+    if (!parsed.success || parsed.data._id !== merchantId) throw new BankOperationError("INVALID_RESPONSE", "Nessie returned a different merchant during rename.");
+    if (parsed.data.name !== expectedName) throw new BankOperationError("REJECTED", "The merchant name changed since the catalog was loaded. Run setup again to review the current catalog.");
+    if (!target || target.length > 100) throw new BankOperationError("REJECTED", "Use a merchant name between 1 and 100 characters.");
+    const current = parsed.data;
+    // Preserve the existing provider metadata; changing the name keeps its ID.
+    await this.request("PUT", path, {
+      name: target,
+      category: current.category,
+      ...(current.address === undefined ? {} : { address: current.address }),
+      ...(current.geocode === undefined ? {} : { geocode: current.geocode }),
+    }, { retry: false });
+    const merchant = await this.getMerchant(merchantId);
+    if (merchant.externalId !== merchantId || merchant.label !== target) {
+      throw new BankOperationError("UNKNOWN", "Nessie did not confirm the new merchant name. Check the catalog before retrying.");
+    }
+    return merchant;
   }
 
   async listPurchases(accountId: string): Promise<PurchaseReceipt[]> {
@@ -128,7 +204,7 @@ export class NessieClient {
 
   async getPurchase(purchaseId: string): Promise<PurchaseReceipt | null> {
     try {
-      const body = await this.request("GET", `/purchases/${encodeURIComponent(purchaseId)}`);
+      const body = await this.request("GET", `/purchase/${encodeURIComponent(purchaseId)}`);
       const parsed = purchaseSchema.safeParse(body);
       if (!parsed.success || !parsed.data._id) throw new BankOperationError("INVALID_RESPONSE", "Nessie returned an invalid purchase.");
       return this.normalizePurchase(parsed.data, parsed.data.payer_id ?? null);
@@ -177,10 +253,12 @@ export class NessieClient {
     merchantId: string;
     amountCents: number;
     description: string;
+    simulateCompletion?: boolean;
   }): Promise<PurchaseReceipt> {
     const body = await this.request("POST", `/accounts/${encodeURIComponent(input.accountId)}/purchases`, {
       merchant_id: input.merchantId,
       medium: "balance",
+      status: input.simulateCompletion ? "completed" : "pending",
       purchase_date: new Date().toISOString().slice(0, 10),
       amount: centsToDollarNumber(input.amountCents),
       description: input.description,
@@ -190,6 +268,17 @@ export class NessieClient {
     const parsed = purchaseSchema.safeParse(object ?? body);
     if (!parsed.success || !parsed.data._id) {
       throw new BankOperationError("UNKNOWN", "Nessie accepted no verifiable purchase receipt.");
+    }
+    if (input.simulateCompletion) {
+      // A creation response is not enough: require a separate read of the record.
+      let verified: PurchaseReceipt | null = null;
+      try { verified = await this.getPurchase(parsed.data._id); } catch { /* account-list fallback below */ }
+      if (!verified) {
+        const matches = (await this.listPurchases(input.accountId)).filter(p => p.externalId === parsed.data._id && p.reference === input.description);
+        if (matches.length === 1) verified = matches[0]!;
+      }
+      if (!verified) throw new BankOperationError('UNKNOWN', 'Sandbox record was created but could not be read back. Reconciliation is required.');
+      return verified;
     }
     return this.normalizePurchase(parsed.data, input.accountId);
   }
@@ -301,6 +390,13 @@ function safeDollars(value: number): number {
 function requireList(body: unknown): unknown[] {
   if (!Array.isArray(body)) throw new BankOperationError("INVALID_RESPONSE", "Nessie did not return a list.");
   return body;
+}
+
+function merchantPage(body: unknown): { data: unknown[]; next: string | null } {
+  if (Array.isArray(body)) return { data: body, next: null };
+  const parsed = z.object({ data: z.array(z.unknown()), paging: z.object({ next: z.string().nullable().optional() }).optional() }).safeParse(body);
+  if (!parsed.success) throw new BankOperationError("INVALID_RESPONSE", "Nessie did not return a merchant list.");
+  return { data: parsed.data.data, next: parsed.data.paging?.next || null };
 }
 
 function safeJson(text: string): unknown {

@@ -1,19 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../client/api";
 import { AudioFramer, StreamingResampler, floatToPcm16, pcm16ToFloat } from "../client/audio";
 import { resolveVoiceCalls, type ProviderCall } from "../client/voice-calls";
 import { voiceToolDefinitions } from "../contracts/voice-tools";
-import { Button, Card, Field, Input } from "./ui";
+import { Button, Card, Field } from "./ui";
+import { PasswordConfirmation } from "./password-confirmation";
 
 type VoiceStart = { sessionId: string; toolToken: string; ephemeralCredential: string; websocketUrl: string; functions: string[]; instructions: string; expiresAt: number; retainTranscript: boolean };
 type Draft = { id: string; state: string; terms: Record<string, unknown>; expiresAt: number };
 type Resources = { socket?: WebSocket; stream?: MediaStream; audio?: AudioContext; session?: VoiceStart; timer?: ReturnType<typeof setTimeout>; framer?: AudioFramer; sources: AudioBufferSourceNode[]; nextPlayAt: number; cancelled: Set<string>; responseId?: string; completed: Set<string> };
 const emptyResources = (): Resources => ({ sources: [], nextPlayAt: 0, cancelled: new Set(), completed: new Set() });
 
-export function VoicePanel({ workspaceId, registrationId, taskId, toolsVerified }: { workspaceId: string; registrationId: string; taskId?: string; toolsVerified: boolean }) {
+export function VoicePanel({ workspaceId, registrationId, taskId, agentReady }: { workspaceId: string; registrationId: string; taskId?: string; agentReady: boolean }) {
   const [status, setStatus] = useState("Idle");
   const [transcript, setTranscript] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -22,6 +23,7 @@ export function VoicePanel({ workspaceId, registrationId, taskId, toolsVerified 
   const [password, setPassword] = useState("");
   const [confirming, setConfirming] = useState(false);
   const queryClient = useQueryClient();
+  const config = useQuery({ queryKey: ["config"], queryFn: () => api<{ voiceConfigured: boolean }>("/api/configuration") });
   const resources = useRef<Resources>(emptyResources());
   const generation = useRef(0);
   const starting = useRef(false);
@@ -152,20 +154,21 @@ export function VoicePanel({ workspaceId, registrationId, taskId, toolsVerified 
       await api(`/api/workspaces/${workspaceId}/authority-drafts/${draft.id}/confirm`, { method: "POST", body: "{}" });
       setDraft(null); setPassword(""); addLine("The owner confirmed the allowance change."); void queryClient.invalidateQueries();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Confirmation failed."); }
-    finally { setConfirming(false); }
+    finally { setConfirming(false); setPassword(""); }
   }
 
   return <Card>
     <h2 className="text-xl font-semibold">Sentinel voice</h2>
-    <p className="text-sm">Discuss the selected Bot&apos;s shared work. Microphone: {status === "Connected" ? muted ? "muted" : "live" : "off"}. Connection: {status}. Private native Bot chats are unavailable here.</p>
-    {!toolsVerified && <p>Connect and verify this Bot&apos;s tools to enable voice.</p>}
+    <p className="text-sm">Talk with this agent about its recorded tasks and give new instructions. Microphone: {status === "Connected" ? muted ? "muted" : "live" : "off"}. Connection: {status}.</p>
+    {!agentReady && <p>Enable this agent on-site to use voice.</p>}
+    {config.data && !config.data.voiceConfigured && <p className="text-sm">The operator must configure XAI_API_KEY to enable voice.</p>}
     {error && <p role="alert">{error}</p>}
     <div className="mt-3 flex gap-2">
-      <Button type="button" disabled={!toolsVerified || status === "Starting" || status === "Connected"} onClick={() => void talk()}>Talk</Button>
+      <Button type="button" disabled={!agentReady || !config.data?.voiceConfigured || status === "Starting" || status === "Connected"} onClick={() => void talk()}>Talk</Button>
       <Button variant="quiet" type="button" disabled={status !== "Connected"} onClick={toggleMute}>{muted ? "Unmute" : "Mute"}</Button>
       <Button variant="quiet" type="button" onClick={() => void stop()}>End conversation</Button>
     </div>
-    {draft && <div className="mt-4 rounded border p-3"><h3 className="font-semibold">Review exact allowance draft</h3><p>Only an owner can confirm. A replacement creates a new lifetime allowance; previous spending stays recorded.</p><pre className="my-2 overflow-auto text-xs">{JSON.stringify(draft.terms, null, 2)}</pre><Field label="Owner password"><Input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field><Button type="button" disabled={!password || confirming} onClick={() => void confirmDraft()}>Confirm these terms</Button></div>}
+    {draft && <div className="mt-4 rounded border p-3"><h3 className="font-semibold">Review exact allowance draft</h3><p>Only an owner can confirm. A replacement creates a new lifetime allowance; previous spending stays recorded.</p><pre className="my-2 overflow-auto text-xs">{JSON.stringify(draft.terms, null, 2)}</pre><Field label="Owner password"><PasswordConfirmation value={password} disabled={confirming} onChange={(event) => setPassword(event.target.value)} /></Field><Button type="button" disabled={!password || confirming} onClick={() => void confirmDraft()}>Confirm these terms</Button></div>}
     <div className="mt-3 max-h-48 overflow-auto text-sm" aria-live="polite">{transcript.map((line, index) => <p key={index}>{line}</p>)}</div>
   </Card>;
 }

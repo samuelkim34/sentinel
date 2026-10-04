@@ -8,6 +8,12 @@ import { atomic, row, rows, run, text } from "./sql";
 const MIGRATION_ID = "001_application";
 
 export function migrateApplication(db: DatabaseSync): void {
+  if (db.isTransaction) throw new Error('Run application migrations outside an existing transaction.');
+  // The v3 connection CHECK constraint needs a table rebuild. Foreign-key
+  // enforcement is restored even on failure; all relationships are checked
+  // before the migration commits. No network work occurs in this transaction.
+  db.exec('PRAGMA foreign_keys = OFF');
+  try {
   atomic(db, () => {
   const metaTable = row(db, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_meta'");
   const existing = metaTable ? row(db, "SELECT value FROM app_meta WHERE key = 'schema_version'") : undefined;
@@ -32,15 +38,48 @@ export function migrateApplication(db: DatabaseSync): void {
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS voice_one_active_per_user ON voice_sessions(user_id) WHERE state = 'ACTIVE'");
     run(db, 'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)', ['002_review_fixes', Date.now()]);
   }
+  if (!row(db, 'SELECT id FROM schema_migrations WHERE id = ?', ['003_onsite_agents'])) {
+    const connectionSql = text(row(db, "SELECT sql FROM sqlite_master WHERE name = 'connections'")?.sql);
+    if (!connectionSql.includes("'INTERNAL'")) {
+      db.exec(`CREATE TABLE connections_v3 (
+        id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, registration_id TEXT NOT NULL,
+        user_id TEXT NOT NULL, resource_uri TEXT NOT NULL UNIQUE,
+        auth_mode TEXT NOT NULL CHECK (auth_mode IN ('OAUTH','PERSONAL_TOKEN','INTERNAL')),
+        token_hash TEXT, state TEXT NOT NULL CHECK (state IN ('PENDING','ACTIVE','REVOKED')),
+        scopes TEXT NOT NULL, tools_verified_at INTEGER, last_seen_at INTEGER, created_at INTEGER NOT NULL,
+        FOREIGN KEY (workspace_id, registration_id) REFERENCES registrations(workspace_id, id)
+      );
+      INSERT INTO connections_v3 SELECT * FROM connections;
+      DROP TABLE connections;
+      ALTER TABLE connections_v3 RENAME TO connections;
+      CREATE INDEX connections_active ON connections(registration_id, state);`);
+    }
+    db.exec(loadSchema('agent-schema.sql'));
+    run(db, 'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)', ['003_onsite_agents', Date.now()]);
+  }
+  if (!row(db, 'SELECT id FROM schema_migrations WHERE id = ?', ['004_sandbox_ledger'])) {
+    db.exec(`ALTER TABLE payment_operations ADD COLUMN settlement_mode TEXT NOT NULL DEFAULT 'BANK_RECEIPT';
+      CREATE TABLE sandbox_ledgers (
+        wallet_id TEXT PRIMARY KEY REFERENCES wallets(id),
+        initial_local_cents INTEGER NOT NULL,
+        initial_observed_cents INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );`);
+    run(db, 'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)', ['004_sandbox_ledger', Date.now()]);
+  }
   run(db, "INSERT INTO app_meta (key, value) VALUES ('schema_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [
     String(SCHEMA_VERSION),
   ]);
+  if (rows(db, 'PRAGMA foreign_key_check').length) throw new Error('Migration would break database relationships.');
   });
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
 }
 
-function loadSchema(): string {
+function loadSchema(filename = 'schema.sql'): string {
   const here = dirname(fileURLToPath(import.meta.url));
-  const candidates = [join(here, "schema.sql"), join(process.cwd(), "src/storage/schema.sql")];
+  const candidates = [join(here, filename), join(process.cwd(), 'src/storage', filename)];
   for (const candidate of candidates) {
     try {
       return readFileSync(/*turbopackIgnore: true*/ candidate, "utf8");

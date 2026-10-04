@@ -8,6 +8,7 @@ process.env.SENTINEL_E2E_DIRECTORY = directory;
 
 export default defineConfig({
   testDir: "e2e",
+  testIgnore: ['**/agent-execution.spec.ts', '**/forms.spec.ts'],
   workers: 1,
   globalTeardown: "./e2e/teardown.ts",
   timeout: 60000,

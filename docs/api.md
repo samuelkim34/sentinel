@@ -74,7 +74,7 @@ Choose a real future expiry at submission time; this example is a shape, not a s
 
 ## Voice routes
 
-`POST /api/voice/sessions` takes `{workspaceId, registrationId, taskId?}` and returns the short-lived session credential, tool token, allowed functions and audio setup. An active verified Bot connection and configured xAI key are required.
+`POST /api/voice/sessions` takes `{workspaceId, registrationId, taskId?}` and returns the short-lived session credential, tool token, allowed functions and audio setup. An active on-site agent connection (or a legacy verified connection) and configured xAI key are required.
 
 `POST /api/voice/sessions/:sessionId/tools` takes `{workspaceId, callId, name, arguments}` and the `x-sentinel-voice-token` header. It requires the current cookie session and exact bound targets. Duplicate identical call IDs replay; changed arguments conflict.
 
@@ -90,3 +90,23 @@ The actual MCP endpoint is **`/mcp/:connectionId`**, using a personal bearer cre
 - Provider endpoints: `/api/auth/oauth2/authorize`, `/token`, `/register`, `/consent`
 
 The ten tools are `get_context`, `list_merchants`, `get_next_task`, `get_task`, `get_agent_state`, `update_task`, `acknowledge_instruction`, `revise_plan`, `submit_proposal`, and `complete_research`. Mutations require a matching task revision and connection-bound lease. No purchase approval, raw banking, arbitrary fetch/SQL, or direct payment tool is registered.
+
+## On-site agent routes
+
+All paths below are under `/api/workspaces/:workspaceId`. Creation/edit/chat/conversion require the current owner or the agent’s controller where applicable. Finance may read permitted shared work, but cannot read another user’s private chat.
+
+| Method and suffix | Body / response |
+| --- | --- |
+| `POST /agents` | `{name, purpose, instructions?, walletIds?}`; creates on-site profile/internal connection, supports Idempotency-Key |
+| `PATCH /agents/:registrationId` | Same profile fields plus `expectedVersion`; owner-only changes to business read grants |
+| `POST /agents/:registrationId/enable` | `{instructions?}`; converts safe legacy registration and revokes external execution |
+| `GET /agents/runtime` | Key-configured flag, model, worker heartbeat; never a credential |
+| `GET /agents/:registrationId/chat` | Current user’s recent messages, own chat runs and visible agent task runs |
+| `POST /agents/:registrationId/chat` | `{text, mandateId?}`; atomic message and queued run, 202, supports Idempotency-Key |
+| `POST /agents/:registrationId/retry` | `{runId}`; explicit safe retry of a failed visible run, 202 |
+
+Registration responses add `executionMode` (`ONSITE`/`EXTERNAL`), `agentInstructions` and `agentReady`. Readiness means an active configured internal execution connection, not a completed live provider acceptance test. Provider configuration is reported separately.
+
+Registration detail's `setup.connectionId` refers only to an active or pending external connection. It is null after revocation and for an on-site internal connection. `setup.connectionState` reports the current external state or the last external state, allowing the UI to display a confirmed revoked status after reload.
+
+Text chat tools: `get_agent_state`, `list_merchants`, `get_task`, `queue_instruction`, `create_task`. Task tools: the three factual reads plus `update_task`, `acknowledge_instruction`, `revise_plan`, `submit_proposal`, `complete_research`. Task tool identity/lease fields are injected by the server, never model-supplied. A selected mandate is bound to one chat run; omitted selection forbids purchase task creation. External connection creation is refused for on-site profiles; their internal identities cannot authenticate to MCP.

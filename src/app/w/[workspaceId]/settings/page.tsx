@@ -4,7 +4,10 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, formatWhen } from "../../../../client/api";
-import { Badge, Button, Card, Field, Input } from "../../../../components/ui";
+import { Badge, Button, Card, Field } from "../../../../components/ui";
+import { PasswordConfirmation } from "../../../../components/password-confirmation";
+
+import { ProductCatalog } from "../../../../components/product-catalog";
 
 const categories = ["GROCERIES", "DINING", "TRANSPORT", "UTILITIES", "OFFICE", "SOFTWARE", "TRAVEL", "HEALTH", "ENTERTAINMENT", "OTHER", "UNKNOWN"];
 
@@ -24,7 +27,7 @@ export default function SettingsPage() {
   const overview = useQuery({
     queryKey: ["overview", workspaceId],
     queryFn: () => api<{ worker: { lastSeenAt: number | null; dueJobs: number } }>(`/api/workspaces/${workspaceId}/overview`),
-    refetchInterval: () => (document.hidden ? false : 10000),
+    refetchInterval: 10000,
   });
   const members = useQuery({
     queryKey: ["members", workspaceId],
@@ -41,7 +44,7 @@ export default function SettingsPage() {
   });
   const config = useQuery({
     queryKey: ["config"],
-    queryFn: () => api<{ nessieConfigured: boolean; voiceConfigured: boolean; nessieBaseHost: string; voiceModel: string; bankFreshnessSeconds: number }>("/api/configuration"),
+    queryFn: () => api<{ nessieConfigured: boolean; voiceConfigured: boolean; agentsConfigured: boolean; agentModel: string; nessieBaseHost: string; voiceModel: string; bankFreshnessSeconds: number }>("/api/configuration"),
   });
   const invite = useMutation({
     mutationFn: async (role: string) => {
@@ -49,6 +52,7 @@ export default function SettingsPage() {
       return api<{ url: string }>(`/api/workspaces/${workspaceId}/invitations`, { method: "POST", body: JSON.stringify({ role }) });
     },
     onSuccess: (result) => setInviteUrl(result.url),
+    onSettled: () => setPassword(""),
   });
   const membership = useMutation({
     mutationFn: async (body: { userId: string; role?: string; state?: string; expectedVersion: number }) => {
@@ -58,13 +62,14 @@ export default function SettingsPage() {
       body: JSON.stringify(body),
     }); },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["members", workspaceId] }),
+    onSettled: () => setPassword(""),
   });
   const retention = useMutation({
     mutationFn: (retainVoiceTranscripts: boolean) => api("/api/preferences", { method: "PUT", body: JSON.stringify({ retainVoiceTranscripts }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["prefs"] }),
   });
   const sync = useMutation({
-    mutationFn: () => api(`/api/workspaces/${workspaceId}/merchants/sync`, { method: "POST", body: "{}" }),
+    mutationFn: () => api<{ imported: number }>(`/api/workspaces/${workspaceId}/merchants/sync`, { method: "POST", body: "{}" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["merchants", workspaceId] }),
   });
   const confirm = useMutation({
@@ -82,7 +87,7 @@ export default function SettingsPage() {
         <Badge tone="neutral">{current?.role ?? "member"}</Badge>
       </header>
 
-      {current?.role === "owner" && current.kind === "BUSINESS" && <Field label="Confirm password for adding owner or finance authority"><Input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>}
+      {current?.role === "owner" && current.kind === "BUSINESS" && <Field label="Confirm password for adding owner or finance authority"><PasswordConfirmation value={password} onChange={(event) => setPassword(event.target.value)} /></Field>}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5">
@@ -100,6 +105,7 @@ export default function SettingsPage() {
           <p className="text-[0.7rem] uppercase tracking-[0.14em] text-slate-500">Runtime</p>
           <p className="mt-3 text-lg font-medium text-ink">{config.data?.nessieConfigured ? "Banking ready" : "Banking missing"}</p>
           <p className="mt-2 text-sm text-slate-600">Nessie host: {config.data?.nessieBaseHost ?? "—"}</p>
+          <p className="mt-2 text-sm text-slate-600">Grok agents: {config.data?.agentsConfigured ? config.data.agentModel : 'Operator must configure XAI_API_KEY'}</p>
         </Card>
       </div>
 
@@ -162,9 +168,13 @@ export default function SettingsPage() {
       <Card className="p-5">
         <h2 className="text-xl font-semibold text-ink">Merchants</h2>
         <p className="mt-2 text-sm text-slate-600">A category of UNKNOWN blocks a category-restricted purchase until an owner confirms it. Sync does not overwrite a category that was already confirmed.</p>
-        {current?.role === "owner" && <Button className="mt-4" variant="quiet" type="button" disabled={sync.isPending} onClick={() => sync.mutate()}>Sync Nessie merchants</Button>}
+        {current?.role === "owner" && <Button className="mt-4" variant="quiet" type="button" disabled={sync.isPending || !config.data?.nessieConfigured} onClick={() => sync.mutate()}>{sync.isPending ? "Syncing Nessie merchants…" : "Sync Nessie merchants"}</Button>}
+        {current?.role === "owner" && config.data && !config.data.nessieConfigured && <p role="status" className="mt-3 text-sm">Set NESSIE_API_KEY on the server and restart Sentinel to sync merchants.</p>}
         {sync.isError ? <p role="alert" className="mt-3">{sync.error.message}</p> : null}
-        {(merchants.data?.merchants ?? []).length === 0 ? <p className="mt-3 text-sm text-slate-600">No merchants in the catalog.</p> : (
+        {sync.isSuccess && <p role="status" className="mt-3 text-sm">{sync.data.imported ? `Sync completed: ${sync.data.imported} merchants imported or updated.` : "Sync completed. Nessie returned no merchants for this API key. Check the merchant data in your Nessie sandbox."}</p>}
+        {merchants.isLoading && <p role="status" className="mt-3 text-sm">Loading merchant catalog…</p>}
+        {merchants.isError && <p role="alert" className="mt-3">Merchant catalog could not be loaded: {merchants.error.message}</p>}
+        {merchants.data?.merchants.length === 0 ? <p className="mt-3 text-sm text-slate-600">No merchants in the catalog yet. Sync imports existing Nessie merchants; it does not create merchants.</p> : (
           <ul className="mt-4 space-y-2">
             {merchants.data?.merchants.map((merchant) => (
               <li key={merchant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f8f4ef] p-3">
@@ -180,6 +190,7 @@ export default function SettingsPage() {
         )}
         {confirm.isError ? <p role="alert" className="mt-3">{confirm.error.message}</p> : null}
       </Card>
+      <ProductCatalog workspaceId={workspaceId} />
     </div>
   );
 }

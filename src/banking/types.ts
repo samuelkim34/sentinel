@@ -30,6 +30,7 @@ export type PurchaseRequest = {
   merchantExternalId: string;
   amountCents: number;
   currency: "USD";
+  simulateCompletion?: boolean;
   sentinelReference: string;
   description: string;
 };

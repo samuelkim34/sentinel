@@ -31,6 +31,10 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn("w-full rounded-xl border border-line bg-[#f8f4ef] px-3.5 py-2.5 text-base text-ink placeholder:text-slate-400 shadow-[0_1px_0_rgba(17,29,43,0.02)]", props.className)} />;
 }
 
+export function MoneyInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+  return <Input min="0" step="0.01" {...props} type="number" inputMode="decimal" autoComplete="off" />;
+}
+
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} className={cn("w-full rounded-xl border border-line bg-[#f8f4ef] px-3.5 py-2.5 text-base text-ink placeholder:text-slate-400 shadow-[0_1px_0_rgba(17,29,43,0.02)]", props.className)} />;
 }

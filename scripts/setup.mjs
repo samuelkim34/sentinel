@@ -18,6 +18,7 @@ if (!existsSync(".env.local")) {
       'ENABLE_MCP_DCR=false',
       'NESSIE_API_KEY=',
       'XAI_API_KEY=',
+      'XAI_AGENT_MODEL=grok-4.7',
       "SENTINEL_DB_PATH=data/sentinel.sqlite",
       "NESSIE_BASE_URL=https://api.nessieisreal.com",
       "XAI_VOICE_MODEL=grok-voice-latest",

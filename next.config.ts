@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [...new Set(devOrigins)],
   serverExternalPackages: ["better-auth", "@better-auth/oauth-provider"],
   outputFileTracingIncludes: {
-    "/*": ["./src/storage/schema.sql"],
+    "/*": ["./src/storage/schema.sql", "./src/storage/agent-schema.sql"],
   },
 };
 

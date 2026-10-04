@@ -76,6 +76,7 @@ class NessieAdapter implements BankingAdapter {
       merchantId: request.merchantExternalId,
       amountCents: request.amountCents,
       description: request.description,
+      simulateCompletion: request.simulateCompletion,
     });
   }
 

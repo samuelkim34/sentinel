@@ -1,10 +1,20 @@
-import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue, type StatementSync } from "node:sqlite";
 import { AppError } from "../contracts/errors";
 
 export type SqlRow = Record<string, SQLInputValue | bigint | null | Uint8Array>;
 
+class SentinelDatabase extends DatabaseSync {
+  override prepare(sql: string): StatementSync {
+    // Better Auth's installed SQLite driver prepares a bare BEGIN. Acquire
+    // write intent before its first read so a worker heartbeat cannot create
+    // SQLITE_BUSY_SNAPSHOT when that auth transaction later inserts a user.
+    const transaction = /^\s*begin(?:\s+(?:deferred(?:\s+transaction)?|transaction))?\s*;?\s*$/i.test(sql);
+    return super.prepare(transaction ? 'BEGIN IMMEDIATE' : sql);
+  }
+}
+
 export function openDatabase(path: string): DatabaseSync {
-  const db = new DatabaseSync(path, { timeout: 5000 });
+  const db = new SentinelDatabase(path, { timeout: 5000 });
   db.exec("PRAGMA foreign_keys = ON");
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA busy_timeout = 5000");

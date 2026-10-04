@@ -1,43 +1,53 @@
-# User-created Grok Bots and MCP
+# Create and operate Grok-powered agents on-site
 
-Create your native Bot in Grok. Sentinel stores a registration and its shared financial/task permissions. It neither starts a substitute text-model loop nor imports a native Bot's private chat or memory.
+The operator configures one server-side xAI key. Each user creates an agent through Sentinel's Bots page with a name, purpose, custom instructions and account read grants. Sentinel persists this identity and runs Grok through the Responses API. It does not create a native bot in the external Grok app, and users do not configure external connectors.
 
-## Connect your Bot
+## User flow
 
-1. Deploy Sentinel at a stable HTTPS origin for a remote native client. Local HTTP works for local development when the client accepts it; a cloud client cannot reach your private loopback server.
-2. Create the Bot in the installed Grok Bot app, giving it your name, purpose, and instructions. The exact menu wording depends on that native client version.
-3. In Sentinel's Bots page, save the corresponding registration. Register business Bots under their controller's account.
-4. Open setup and click **Create OAuth connection**. Wait for success and copy its exact `/mcp/CONNECTION_ID` URL.
-5. If the native client performs OAuth dynamic registration, the operator sets `ENABLE_MCP_DCR=true` and restarts Sentinel. DCR is false on a fresh setup. The client must use PKCE; HTTP loopback callbacks register as a native application.
-6. Add the URL as a remote MCP server in the native Bot's connector settings. Sign in with the same Sentinel person who controls the registration.
-7. On consent, verify the workspace, registration, granted accounts, and requested scopes. Consent does not create an allowance or approval authority.
-8. Ask the Bot to call `get_context` and explain the actual returned permissions. This marks the connection verified and unlocks voice when xAI is configured.
-9. Create a research task and ask the Bot to call `get_next_task`, read the task/instructions, and report progress. Purchase work also needs an active mandate granted by an owner.
+1. Create a Sentinel account and workspace.
+2. Open Bots and choose Create an agent. The controller is the creating user. Business users can create their own agents, but only an owner can grant account access.
+3. Open the agent and edit its name, purpose, instructions and granted accounts. Changing preferences never changes spending authority. Removing read access under a current allowance is refused until that allowance is revoked.
+4. Use chat for questions and explicit work requests. The default permits research and conversation. For a purchase request, select an existing owner-granted allowance for that specific message.
+5. Create tasks manually when you prefer exact control over task kind, outcome and allowance. On-site agents pick eligible tasks up automatically while active.
+6. Inspect Recent agent runs and the task's recorded updates, instruction status and proposals. A successful Grok run means that the model run finished, not that a purchase settled.
+7. Use Talk to converse through Grok realtime audio. Voice reads the same configuration and persisted task state plus your own recent text chat. Task and financial permissions remain server-controlled.
 
-The actual native Grok app was not connected during this review. The app's OAuth code flow, consent browser UI, PKCE exchange, MCP authentication and revocation were exercised by a test client. Verify native-client compatibility with your installed version before relying on unattended tasks.
+Text conversations are stored per user and agent. Other authorized workspace members see shared task actions and task-run summaries, not your chat messages. The last 24 chat messages at or before the current request are provided to the text model. Task runs do not receive a controller's private chat. Voice reads up to 12 recent messages belonging to its current user; it does not inherit an unlimited conversation or hidden reasoning.
 
-## Suggested instructions
+## Operator configuration
 
-The registration detail page produces instructions you can paste into your Bot. Keep these rules:
+Set `XAI_API_KEY` in `.env.local`, keep it private, and restart Sentinel. `XAI_AGENT_MODEL` defaults to `grok-4.7`; choose another supported Grok model if your account requires it. This model must support the Responses API and function calls. `XAI_VOICE_MODEL` defaults to `grok-voice-latest`.
 
-- Use this connection's `get_context` and `get_next_task`; operate only on tasks it returns.
-- Preserve the lease token and revision on every update/proposal.
-- Report instructions as queued, acknowledged or applied according to stored server state.
-- Use `list_merchants` and its server-confirmed categories. Explain amounts, evidence, and uncertainty.
-- Treat a proposal or reservation as work in progress. A payment is complete only when Sentinel records a matching completed receipt.
-- Ask a human when blocked. Changing your prompt, routine or reasoning cannot raise the mandate.
-- Use `complete_research` for research output. Purchase completion is driven by settlement.
+`npm run dev` and `npm start` supervise all three processes. The chat panel shows configured model and agent-worker heartbeat. A missing key prevents chat insertion. A stopped worker leaves already accepted requests queued. Provider/model-access/rate-limit failures produce an explicit failed run with recorded tool activity; no fake response or completion is inserted.
 
-A native Grok routine may poll for tasks. Sentinel's worker settles authorized financial jobs; it does not call an LLM to make your native Bot reason.
+A workspace can have 20 unarchived on-site agents. Chat is limited to 10 new requests per user/minute and 20 pending runs per agent. Workspace run limits and model budgets are configurable:
 
-## Credential modes and OAuth decisions
+| Variable | Default | Allowed range |
+| --- | --- | --- |
+| `AGENT_DAILY_RUN_LIMIT` | 200 per workspace per rolling 24 hours | 1–10,000 |
+| `AGENT_MAX_STEPS` | 6 requests per run | 1–12 |
+| `AGENT_MAX_TOOL_CALLS` | 20 per run | 1–40 |
+| `AGENT_MAX_OUTPUT_TOKENS` | 2048 per request | 128–8192 |
+| `AGENT_REQUEST_TIMEOUT_SECONDS` | 45 | 5–120 |
 
-OAuth is used for business connections. Tokens must be for the exact connection URL and their subject must match its controller. Each request also checks current membership and revocation. A resource belonging to another person may not be used even if a token was issued after unrelated consent.
+These are execution bounds, not a guaranteed dollar-cost cap. xAI bills the operator's account. Configure its provider-side spending controls for your intended deployment. The worker runs one model job at a time per process, and the database permits only one running job per agent. Operate one agent-worker instance for this deployment.
 
-The provider's `enforcePerClientResources` option is explicitly false because per-connection resources are created before the native client's identity is known. This allows a registered client to request a resource through consent. Application-level issuer/audience/user/connection checks remain mandatory. Resource creation requires both the signed-in human session and the internal server privilege header.
+## Existing registrations
 
-A personal workspace controller can use a compatibility bearer token, shown once and stored only as a hash. It is a transferable credential, not proof of the physical native Bot using it. Business workspaces reject that mode.
+Open an old registration and choose Enable on-site agent. The server checks owner/controller authority, preserves the registration and its permissions, and replaces execution with a credential-free internal principal. Conversion refuses live external leases and review/reserved/submitted financial work; finish or cancel eligible work first. Previous external connections are revoked, and cannot be used to operate the converted agent.
 
-Consent may include `proposals:write` before a mandate is granted, avoiding a permanently read-only connection. Actually using that scope requires a current unexpired mandate, and the proposal domain checks exact authority again. Task updates and reads still use their own scopes.
+Internal principals are not bearer credentials or public MCP endpoints. External OAuth/token APIs remain for legacy development integrations, but the default agent UI does not create them. New external connections for on-site agents are rejected. No native-client private memory is imported during conversion.
 
-Creating another connection does not revoke older connections. Revoke each credential you stop using. Pause/archive the registration to stop its eligible unsubmitted work across connections. Already submitted purchases require reconciliation.
+## Tool behavior
+
+Chat can read current agent state, query synced merchants, read its own agent's tasks, queue requested instructions and create one requested task per chat message. It cannot submit purchase proposals. A purchase task created by chat uses only the allowance explicitly selected by the human.
+
+Task runs obtain a short-lived lease and use task-bound tools to record progress, acknowledge/apply instructions, revise an uncommitted plan, propose a purchase, or complete research. Identity, task ID, revision and lease are injected by the server. The model cannot choose another task, controller or workspace for mutations. Outstanding instructions must be recorded as applied before a purchase proposal. New instructions can restart a task waiting for review or blocked before submission; revised terms require a new policy decision and approval where applicable.
+
+Tools never approve payments, expand authority, execute SQL, browse arbitrary URLs or call the bank directly. The agent worker refreshes a stale purchase account through the authorized server banking adapter before claiming financial work. The payment worker independently revalidates policy and receipts.
+
+## Failures and retry
+
+Review tool activity before choosing Review done — retry run. Retries reuse the original chat message's task/instruction idempotency keys. A stale worker claim cannot mutate state. Interrupted runs are failed without automatic replay. Financial tasks with existing commitments cannot be retried through the run button; use their normal review/reconciliation controls. Task notes are model-reported statements, and receipts remain authoritative for payment completion.
+
+Provider reference: [xAI function calling](https://docs.x.ai/developers/tools/function-calling), [Responses API](https://docs.x.ai/developers/rest-api-reference/inference/responses).

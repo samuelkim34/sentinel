@@ -1,3 +1,9 @@
+# On-site agent update
+
+The current update adds real Grok API execution, on-site setup/chat/voice readiness and migration 003 while preserving the redesigned UI and financial domain checks. It also fixes unguarded document polling callbacks, separates asynchronous auth transactions from domain connections, starts both workers with ordinary dev/start, and removes a stray character from the uploaded GitHub workflow. See [current verification](verification.md).
+
+## Previous financial/auth review
+
 # Code review and corrections
 
 Reviewed October 3, 2026, against the supplied Cursor project ZIP. The corrected handoff preserves the native user-created Grok Bot architecture and empty installation. Runtime secrets, dependencies, generated builds, browser traces and review databases are excluded.
@@ -32,7 +38,7 @@ The UI now stops actual microphone transmission when muted, clears input frames,
 
 ## Running and hosting
 
-Runtime scripts work on the required Node 24 line without tsx CLI IPC assumptions. Environment parsing uses Node's parser. Setup preserves existing private configuration, dev starts/stops both services, production startup migrates, and builds use an isolated temporary database. Build no longer needs remote font downloads or a global runtime monkeypatch.
+Runtime scripts work on the required Node 24 line without tsx CLI IPC assumptions. Environment parsing uses Node's parser. Setup preserves existing private configuration, dev starts/stops the web app and both workers, production startup migrates, and builds use an isolated temporary database. Build no longer needs remote font downloads or a global runtime monkeypatch.
 
 The account creation UI supplies the required password grant and disables unavailable provider actions. Existing-account candidate UI uses the actual server DTO. Additional state-changing forms display failures and honor pending/role requirements.
 

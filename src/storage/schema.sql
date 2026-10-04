@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS connections (
   registration_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   resource_uri TEXT NOT NULL UNIQUE,
-  auth_mode TEXT NOT NULL CHECK (auth_mode IN ('OAUTH', 'PERSONAL_TOKEN')),
+  auth_mode TEXT NOT NULL CHECK (auth_mode IN ('OAUTH', 'PERSONAL_TOKEN', 'INTERNAL')),
   token_hash TEXT,
   state TEXT NOT NULL CHECK (state IN ('PENDING', 'ACTIVE', 'REVOKED')),
   scopes TEXT NOT NULL,

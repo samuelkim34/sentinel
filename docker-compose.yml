@@ -1,6 +1,7 @@
 services:
   web:
     build: .
+    command: ["npm", "run", "start:web"]
     restart: unless-stopped
     stop_grace_period: 30s
     ports:
@@ -22,6 +23,19 @@ services:
     command: ["node", "--import", "tsx", "src/worker/main.ts"]
     restart: unless-stopped
     stop_grace_period: 30s
+    env_file: .env.local
+    environment:
+      SENTINEL_DB_PATH: /data/sentinel.sqlite
+    volumes:
+      - sentinel-data:/data
+    depends_on:
+      web:
+        condition: service_healthy
+  agent-worker:
+    build: .
+    command: ["node", "--import", "tsx", "src/worker/agents.ts"]
+    restart: unless-stopped
+    stop_grace_period: 60s
     env_file: .env.local
     environment:
       SENTINEL_DB_PATH: /data/sentinel.sqlite

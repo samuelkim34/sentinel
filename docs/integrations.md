@@ -1,16 +1,16 @@
 # Integration status
 
-| Surface | Implemented and verified |
+| Surface | Implementation and verification boundary |
 | --- | --- |
-| Email/password sessions | Better Auth; automated sign-in and real Chromium signup/logout/login flows |
-| MCP OAuth | Explicit JWT issuer, resource-bound access, controller subject match, PKCE, consent, discovery, revocation; test-client and browser flows |
-| OAuth dynamic registration | Explicitly disabled by default; anonymous native registration tested when deliberately enabled |
-| Personal token | Personal controller compatibility mode; hashed storage and live connection checks |
-| Native Grok Bot | User creates it outside Sentinel; actual native-client connection was not available for this review |
-| Nessie sandbox | Provider adapter, observations, protected funds, mandates and purchase worker; isolated fixtures, live key required |
-| xAI realtime voice | Ephemeral credential gateway, PCM streaming UI, bounded server tools and lifecycle; isolated fixtures, live key/microphone required |
-| Business teams | Membership/invitation/owner/finance/member domain controls; no outgoing messaging service |
-| GitHub source and CI | Ignored secrets/data, lockfile, Actions checks and deployment instructions; repository has not been created remotely |
-| Container hosting | Node 24 image and one-web/one-worker Compose configuration; Docker was unavailable for runtime verification |
+| On-site agent setup | Real persistent profiles, read grants, edit/version controls, legacy conversion; no seeded agents |
+| Grok text execution | xAI Responses function calls, run queue/claims, task-bound domain tools, bounded requests and tool journal; controlled provider fixtures, live operator key required |
+| Chat | Per-user history and original-message idempotency; no default purchase permission, explicit allowance selection |
+| Voice | xAI ephemeral credentials, realtime PCM streaming, bound tools and same agent state; server/audio fixtures, live key and microphone required |
+| Email/password auth | Better Auth and exact-origin controls; separate file-backed connection and immediate transactions prevent the observed worker/signup snapshot race |
+| Nessie sandbox | Verified account bindings, observations, protected funds, mandates and purchase settlement; isolated adapter tests, live sandbox key required |
+| Business teams | Owner/finance/member visibility, invitation links and approval separation; no outgoing messaging service |
+| Optional legacy MCP | OAuth/token APIs, PKCE, scoped resources, revocation; converted on-site profiles reject external execution |
+| GitHub/CI | Source and automated workflow supplied; no remote push or deployment performed by this handoff |
+| Containers | Web, agent-worker and payment-worker share one persistent volume; Compose reviewed, Docker runtime unavailable here |
 
-The financial action implemented here is a sandbox merchant purchase. It does not connect real Capital One customer accounts or make production bank payments. Voice reads shared work rather than the external Bot's private memory. These boundaries remain visible in the app and documentation.
+The runtime does not create native Grok-app bots. Users configure agents on-site; the operator configures provider access once. The supported financial action is a USD Nessie sandbox merchant purchase. There is no real Capital One customer login, production banking, retailer checkout or live web-search tool. Text run success is independent from task completion and bank receipt status.

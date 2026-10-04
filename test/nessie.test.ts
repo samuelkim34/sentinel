@@ -25,3 +25,42 @@ it("purchase POSTs are attempted once when the result is uncertain", async () =>
   const c = new NessieClient({ baseUrl: "https://fixture.invalid", apiKey: "fixture-key", fetchImpl: async () => { calls++; return Response.json({}, { status: 429 }); } });
   await assert.rejects(c.createPurchase({ accountId: "account", merchantId: "merchant", amountCents: 100, description: "sentinel-reference" }), kind("UNKNOWN")); assert.equal(calls, 1);
 });
+
+it("merchant sync reads wrapped pages and keeps pagination on the configured HTTPS origin", async () => {
+  const requested: URL[] = [];
+  const c = new NessieClient({ baseUrl: "https://fixture.invalid", apiKey: "fixture-key", fetchImpl: async input => {
+    const url = new URL(String(input)); requested.push(url);
+    return Response.json(requested.length === 1 ? { data: [{ _id: "one", name: "First", category: "Food" }], paging: { next: "http://fixture.invalid/merchants?page=2&key=other-key" } } : { data: [{ _id: "two", name: "Second", category: ["Office"] }], paging: { next: null } });
+  } });
+  assert.deepEqual((await c.listMerchants()).map(item => item.externalId), ["one", "two"]);
+  assert.equal(requested.length, 2);
+  assert.equal(requested[1]?.origin, "https://fixture.invalid");
+  assert.equal(requested[1]?.searchParams.get("key"), "fixture-key");
+});
+
+it("merchant pagination refuses other hosts, credentials and unrelated bank routes", async () => {
+  for (const next of ["https://other.invalid/merchants", "/accounts", "https://user:secret@fixture.invalid/merchants"]) {
+    let calls = 0;
+    const c = new NessieClient({ baseUrl: "https://fixture.invalid", apiKey: "fixture-key", fetchImpl: async () => { calls++; return Response.json({ data: [], paging: { next } }); } });
+    await assert.rejects(c.listMerchants(), kind("INVALID_RESPONSE")); assert.equal(calls, 1);
+  }
+});
+
+it("merchant pagination detects cycles and stops at the requested count", async () => {
+  let calls = 0;
+  const c = new NessieClient({ baseUrl: "https://fixture.invalid", apiKey: "fixture-key", fetchImpl: async () => { calls++; return Response.json({ data: [{ _id: "one", name: "First" }], paging: { next: "/merchants?page=1" } }); } });
+  assert.equal((await c.listMerchants(1)).length, 1); assert.equal(calls, 1);
+  calls = 0;
+  await assert.rejects(c.listMerchants(), kind("INVALID_RESPONSE")); assert.equal(calls, 2);
+  await assert.rejects(client({ data: null }).listMerchants(), kind("INVALID_RESPONSE"));
+});
+
+it('purchase creation includes pending status and exact USD amount', async () => {
+  const c = new NessieClient({ baseUrl: 'https://fixture.invalid', apiKey: 'fixture-key', fetchImpl: async (_url, init) => {
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.status, 'pending'); assert.equal(body.amount, 3.49);
+    return Response.json({ objectCreated: { ...body, _id: 'purchase', payer_id: 'account' } }, { status: 201 });
+  } });
+  const receipt = await c.createPurchase({ accountId: 'account', merchantId: 'merchant', amountCents: 349, description: 'reference' });
+  assert.equal(receipt.state, 'PENDING'); assert.equal(receipt.amountCents, 349);
+});

@@ -8,6 +8,7 @@ if (migrated.status !== 0) process.exit(migrated.status ?? 1);
 const children = [
   spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--port', runtimePort(), '--hostname', process.env.SENTINEL_HOST ?? '127.0.0.1'], { stdio: 'inherit' }),
   spawn(process.execPath, ['--import', 'tsx', 'src/worker/main.ts'], { stdio: 'inherit' }),
+  spawn(process.execPath, ['--import', 'tsx', 'src/worker/agents.ts'], { stdio: 'inherit' }),
 ];
 let stopping = false;
 function stop(code = 0) {

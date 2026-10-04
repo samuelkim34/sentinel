@@ -85,12 +85,23 @@ export async function submitPayment(db: DatabaseSync, proposalId: string, now: n
       [text(current.wallet_id)],
     );
     if (unresolved) throw conflict("WALLET_BUSY", "This account already has an unresolved submission.");
+    const simulate = getEnv().NESSIE_SIMULATE_COMPLETION;
+    if (row(db, 'SELECT wallet_id FROM sandbox_ledgers WHERE wallet_id = ?', [text(current.wallet_id)]) && !simulate) {
+      throw conflict('SANDBOX_MODE_REQUIRED', 'This account has a local sandbox ledger. Re-enable sandbox completion mode to continue.');
+    }
+    if (simulate) {
+      const latest = row(db, 'SELECT observed_balance_cents FROM bank_observations WHERE wallet_id = ? ORDER BY observed_at DESC LIMIT 1', [text(current.wallet_id)]);
+      const liveWallet = row(db, 'SELECT policy_balance_cents FROM wallets WHERE id = ?', [text(current.wallet_id)])!;
+      if (!latest) throw conflict('BANK_STATE_STALE', 'Refresh the account before starting a sandbox ledger.');
+      run(db, 'INSERT OR IGNORE INTO sandbox_ledgers (wallet_id, initial_local_cents, initial_observed_cents, created_at) VALUES (?, ?, ?, ?)',
+        [text(current.wallet_id), num(liveWallet.policy_balance_cents), num(latest.observed_balance_cents), now]);
+    }
     run(
       db,
       `INSERT INTO payment_operations (
-        id, proposal_id, wallet_id, upstream_reference, state, submission_count, submitted_at, attempt_count
-      ) VALUES (?, ?, ?, ?, 'SUBMITTING', 1, ?, 0)`,
-      [operationId, proposalId, text(current.wallet_id), reference, now],
+        id, proposal_id, wallet_id, upstream_reference, state, submission_count, submitted_at, attempt_count, settlement_mode
+      ) VALUES (?, ?, ?, ?, 'SUBMITTING', 1, ?, 0, ?)`,
+      [operationId, proposalId, text(current.wallet_id), reference, now, simulate ? "LOCAL_SANDBOX" : "BANK_RECEIPT"],
     );
     run(db, "UPDATE proposals SET state = 'SUBMITTING', updated_at = ? WHERE id = ?", [now, proposalId]);
     run(db, "UPDATE tasks SET state = 'WAITING_PAYMENT', updated_at = ? WHERE id = ?", [now, text(current.task_id)]);
@@ -116,6 +127,7 @@ export async function submitPayment(db: DatabaseSync, proposalId: string, now: n
       currency: "USD",
       sentinelReference: reference,
       description: reference,
+      simulateCompletion: row(db, 'SELECT settlement_mode FROM payment_operations WHERE id = ?', [operationId])?.settlement_mode === 'LOCAL_SANDBOX',
     });
     atomic(db, () => applyReceipt(db, proposalId, operationId, receipt, now));
   } catch (error) {
@@ -139,15 +151,20 @@ export async function reconcilePayment(db: DatabaseSync, proposalId: string, now
   const max = getEnv().RECONCILE_MAX_ATTEMPTS;
   const wallet = row(db, "SELECT upstream_account_id FROM wallets WHERE id = ?", [text(operation.wallet_id)]);
   let receipt: PurchaseReceipt | null = null;
-  try {
-    if (operation.upstream_id) receipt = await getBankingAdapter().getPurchase(text(operation.upstream_id));
-    else if (wallet) {
+  let readDetail = 'BANK_READ_UNVERIFIED: No uniquely matching transaction was found; the saved status is not a fresh confirmation.';
+  if (operation.upstream_id) {
+    try { receipt = await getBankingAdapter().getPurchase(text(operation.upstream_id)); }
+    catch { receipt = null; }
+  }
+  // Some deployments expose account purchase lists but not the direct-ID route.
+  // This is another authorized read, never permission to retry a bank POST.
+  if (!receipt && wallet) {
+    try {
       const lookup = await getBankingAdapter().findPurchaseByReference(text(wallet.upstream_account_id), text(operation.upstream_reference));
-      if (!lookup.supported) receipt = null;
-      else receipt = lookup.receipt;
+      receipt = lookup.supported ? lookup.receipt : null;
+    } catch {
+      readDetail = 'BANK_READ_FAILED: Could not verify the current bank status. The displayed payment state may be from an earlier receipt.';
     }
-  } catch {
-    receipt = null;
   }
   atomic(db, () => {
     const current = row(db, "SELECT * FROM payment_operations WHERE id = ?", [text(operation.id)]);
@@ -157,6 +174,8 @@ export async function reconcilePayment(db: DatabaseSync, proposalId: string, now
       applyReceipt(db, proposalId, text(operation.id), receipt, now);
       return;
     }
+    if (!receipt) run(db, 'UPDATE payment_operations SET detail = ? WHERE id = ?', [readDetail, text(operation.id)]);
+    if (receipt) moveToReconcile(db, proposalId, text(operation.id), now, receiptMismatchDetail(db, proposalId, receipt));
     if (attempts >= max) {
       run(db, "UPDATE payment_operations SET attempt_count = ?, last_checked_at = ?, manual_review = 1, next_check_at = NULL WHERE id = ?", [
         attempts, now, text(operation.id),
@@ -182,7 +201,7 @@ export function applyReceipt(db: DatabaseSync, proposalId: string, operationId: 
     if (!operation.upstream_id && text(operation.state) === "SUBMITTING" && receipt.externalId && !receiptContradicts(db, proposalId, receipt, operation)) {
       run(db, "UPDATE payment_operations SET upstream_id = ? WHERE id = ?", [receipt.externalId, operationId]);
     }
-    moveToReconcile(db, proposalId, operationId, now, "RECEIPT_NOT_VERIFIED");
+    moveToReconcile(db, proposalId, operationId, now, receiptMismatchDetail(db, proposalId, receipt));
     return;
   }
   if (receipt.state === "COMPLETED") {
@@ -197,7 +216,7 @@ export function applyReceipt(db: DatabaseSync, proposalId: string, operationId: 
     ]);
     run(db, "DELETE FROM reservations WHERE proposal_id = ?", [proposalId]);
     run(db, "UPDATE proposals SET state = 'COMPLETED', updated_at = ? WHERE id = ?", [now, proposalId]);
-    run(db, "UPDATE payment_operations SET state = 'COMPLETED', upstream_id = COALESCE(?, upstream_id), receipt_applied = 1, last_checked_at = ? WHERE id = ?", [
+    run(db, "UPDATE payment_operations SET state = 'COMPLETED', detail = CASE WHEN settlement_mode = 'LOCAL_SANDBOX' THEN 'SANDBOX_COMPLETED: Provider record verified; Sentinel spending balance debited once. This does not prove a Nessie balance deduction.' ELSE NULL END, upstream_id = COALESCE(?, upstream_id), receipt_applied = 1, last_checked_at = ? WHERE id = ?", [
       receipt.externalId, now, operationId,
     ]);
     run(db, "UPDATE tasks SET state = 'COMPLETED', updated_at = ? WHERE id = ?", [now, text(proposal.task_id)]);
@@ -220,7 +239,7 @@ export function applyReceipt(db: DatabaseSync, proposalId: string, operationId: 
   }
   if (receipt.state === "PENDING") {
     run(db, "UPDATE proposals SET state = 'SUBMITTED_PENDING', updated_at = ? WHERE id = ?", [now, proposalId]);
-    run(db, "UPDATE payment_operations SET state = 'SUBMITTED_PENDING', upstream_id = COALESCE(?, upstream_id), last_checked_at = ? WHERE id = ?", [
+    run(db, "UPDATE payment_operations SET state = 'SUBMITTED_PENDING', detail = 'BANK_PENDING_CONFIRMED: A matching receipt was read; Nessie reports pending.', upstream_id = COALESCE(?, upstream_id), last_checked_at = ? WHERE id = ?", [
       receipt.externalId, now, operationId,
     ]);
     run(db, "UPDATE tasks SET state = 'WAITING_PAYMENT', updated_at = ? WHERE id = ?", [now, text(proposal.task_id)]);
@@ -309,6 +328,14 @@ function releaseAsFailed(db: DatabaseSync, proposalId: string, operationId: stri
     detail: { code },
     at: now,
   });
+}
+
+function receiptMismatchDetail(db: DatabaseSync, proposalId: string, receipt: PurchaseReceipt): string {
+  const proposal = row(db, 'SELECT amount_cents FROM proposals WHERE id = ?', [proposalId]);
+  if (proposal && receipt.amountCents !== null && receipt.amountCents !== num(proposal.amount_cents)) {
+    return `BANK_AMOUNT_MISMATCH: expected ${(num(proposal.amount_cents) / 100).toFixed(2)} USD; bank returned ${(receipt.amountCents / 100).toFixed(2)} USD. Payment is not verified. Do not resubmit or mark it complete.`;
+  }
+  return 'RECEIPT_NOT_VERIFIED';
 }
 
 function receiptContradicts(db: DatabaseSync, proposalId: string, receipt: PurchaseReceipt, operation: SqlRow): boolean {
@@ -407,7 +434,8 @@ function releaseExpiredLeases(db: DatabaseSync, now: number) {
     );
     if (proposal) continue;
     const task = row(db, "SELECT state FROM tasks WHERE id = ?", [text(lease.task_id)]);
-    if (task && text(task.state) === "IN_PROGRESS") {
+    const onsite = row(db, 'SELECT p.registration_id FROM agent_profiles p JOIN tasks t ON t.registration_id = p.registration_id WHERE t.id = ?', [text(lease.task_id)]);
+    if (task && text(task.state) === "IN_PROGRESS" && !onsite) {
       run(db, "UPDATE tasks SET state = 'QUEUED', updated_at = ? WHERE id = ?", [now, text(lease.task_id)]);
     }
     run(db, "DELETE FROM task_leases WHERE task_id = ?", [text(lease.task_id)]);

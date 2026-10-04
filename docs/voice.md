@@ -1,10 +1,10 @@
 # Grok realtime voice
 
-Voice is an xAI conversation over the Bot registration's shared Sentinel state. Native Grok Bots remain external agents. Voice can explain stored work and send explicit human instructions; it has no access to the native Bot's private chat or unreported reasoning.
+Voice is the xAI realtime interface to an on-site agent's persisted Sentinel state. It uses the same name, purpose and custom instructions, reads current tasks and the current user's recent chat, and can queue explicit work. Voice and text are separate model transports over shared application facts; hidden reasoning and unlimited conversation context are not imported.
 
 ## Transport and audio
 
-The server authenticates the human, verifies an active tool-tested connection, checks the task/registration binding, and reserves one active session atomically. It requests a short-lived credential from `POST https://api.x.ai/v1/realtime/client_secrets`, with a bounded provider deadline. Failure closes the reservation so the user can retry. The long-lived `XAI_API_KEY` never goes to the browser.
+The server authenticates the human, verifies an active on-site execution connection (or an optional legacy verified connection), checks the task/registration binding, and reserves one active session atomically. It requests a short-lived credential from `POST https://api.x.ai/v1/realtime/client_secrets`, with a bounded provider deadline. Failure closes the reservation so the user can retry. The long-lived `XAI_API_KEY` never goes to the browser.
 
 The browser opens `wss://api.x.ai/v1/realtime?model=...` using the ephemeral credential in the `xai-client-secret.<token>` subprotocol. `XAI_VOICE_MODEL` defaults to `grok-voice-latest`. AudioContext is resumed on user interaction, input is resampled to 24 kHz and encoded as little-endian PCM16, and 20 ms frames are sent. Streaming resampling retains fractional sample position between chunks, including 44.1 kHz input.
 
@@ -33,4 +33,4 @@ One active voice session per user is allowed; defaults are 15-minute sessions an
 
 Transcript retention is off by default. When opted in, final user/assistant text may be saved through the session-bound transcript route. Turning it off deletes existing stored text and prevents new storage in active sessions. Provider-side handling follows the xAI service independently.
 
-Backend session/tool behavior, failure cleanup, replay/rollback, task isolation, retention, resampling and parallel outputs were tested using isolated fixtures. A live xAI WebSocket, actual microphone playback, and the installed native Grok app were not exercised. Validate them using your key and microphone on HTTPS or loopback.
+Backend session/tool behavior, failure cleanup, replay/rollback, task isolation, retention, resampling and parallel outputs were tested using isolated fixtures. A live xAI WebSocket, actual microphone playback, and a live xAI text-model request were not exercised. Validate them using your key and microphone on HTTPS or loopback.

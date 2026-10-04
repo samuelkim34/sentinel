@@ -18,6 +18,9 @@ export async function authenticateConnector(request: Request, connectionId: stri
   if (!connection || text(connection.state) !== "ACTIVE") {
     throw new AppError(401, "CONNECTION_REVOKED", "This connection has been revoked.");
   }
+  if (text(connection.auth_mode) === 'INTERNAL') {
+    throw new AppError(401, 'TOKEN_REJECTED', 'On-site execution identities cannot be used as external MCP connections.');
+  }
   const resource = text(connection.resource_uri);
   let scopes: string[] = [];
   if (token.startsWith("snt_")) {

@@ -39,6 +39,7 @@ yarn-error.log*
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+.merchant-setup-*.lock
 
 # local notes that are not part of the app
 /uploads

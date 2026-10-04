@@ -1,3 +1,5 @@
+import { recheckBlockedProposal } from "../../../../../domain/proposals";
+import { listProducts } from '../../../../../domain/products';
 import { CATEGORIES, type MerchantCategory } from "../../../../../contracts/constants";
 import { notFound, unavailable } from "../../../../../contracts/errors";
 import { parseUsdToCents } from "../../../../../contracts/money";
@@ -54,6 +56,7 @@ import { assertOrigin, errorResponse, idempotencyKey, json, readJson, resolveHum
 import { getDb } from "../../../../../storage/db";
 import { atomic, run, row, text } from "../../../../../storage/sql";
 import { requireHuman } from "../../../../../domain/access";
+import { createAgent, updateAgent, enableOnsiteAgent, chatHistory, sendChat, retryAgentRun, agentRuntime } from '../../../../../domain/agents';
 
 export const runtime = "nodejs";
 
@@ -64,6 +67,20 @@ async function handle(request: Request, workspaceId: string, slug: string[]) {
   const now = Date.now();
   const body = request.method === "GET" ? {} : await readJson(request);
   const [a, b, c] = slug;
+
+  if (request.method === 'GET' && a === 'agents' && b === 'runtime') return json(agentRuntime(db));
+  if (request.method === 'POST' && a === 'agents' && !b) return json(createAgent(db, human, {
+    name: body.name as string, purpose: body.purpose as string, instructions: body.instructions as string | undefined,
+    walletIds: body.walletIds as string[] | undefined,
+  }, now, idempotencyKey(request)), 201);
+  if (request.method === 'PATCH' && a === 'agents' && b && !c) return json(updateAgent(db, human, b, {
+    name: body.name as string, purpose: body.purpose as string, instructions: body.instructions as string | undefined,
+    walletIds: body.walletIds as string[] | undefined, expectedVersion: Number(body.expectedVersion),
+  }, now));
+  if (request.method === 'POST' && a === 'agents' && b && c === 'enable') return json(enableOnsiteAgent(db, human, b, String(body.instructions ?? ''), now));
+  if (request.method === 'GET' && a === 'agents' && b && c === 'chat') return json(chatHistory(db, human, b));
+  if (request.method === 'POST' && a === 'agents' && b && c === 'chat') return json(sendChat(db, human, b, { text: body.text as string, mandateId: body.mandateId as string | null | undefined }, now, idempotencyKey(request)), 202);
+  if (request.method === 'POST' && a === 'agents' && b && c === 'retry') return json(retryAgentRun(db, human, b, String(body.runId ?? ''), now), 202);
 
   if (request.method === "GET" && a === "overview") return json(overview(db, human));
   if (request.method === "GET" && a === "members") return json({ members: listMembers(db, human) });
@@ -105,6 +122,7 @@ async function handle(request: Request, workspaceId: string, slug: string[]) {
   if (request.method === "PATCH" && a === "protections" && b) {
     return json(updateProtection(db, human, b, { amount: body.amount, state: body.state as "ACTIVE" | "DISABLED" | undefined, expectedVersion: Number(body.expectedVersion) }, now));
   }
+  if (request.method === "GET" && a === "products") return json({ products: listProducts(db, human, new URL(request.url).searchParams.get("search") ?? "") });
   if (request.method === "GET" && a === "merchants") return json({ merchants: listMerchants(db, human, typeof body.search === "string" ? body.search : request.url.includes("search=") ? new URL(request.url).searchParams.get("search") ?? undefined : undefined) });
   if (request.method === "POST" && a === "merchants" && b === "sync") return json(await syncMerchants(db, human, now));
   if (request.method === "PATCH" && a === "merchants" && b) {
@@ -171,6 +189,7 @@ async function handle(request: Request, workspaceId: string, slug: string[]) {
   if (request.method === "POST" && a === "tasks" && b && c === "cancel") return json(cancelTask(db, human, b, now));
   if (request.method === "GET" && a === "proposals" && !b) return json({ proposals: listProposals(db, human) });
   if (request.method === "GET" && a === "proposals" && b && !c) return json(getProposal(db, human, b));
+  if (request.method === "POST" && a === "proposals" && b && c === "recheck") return json(await recheckBlockedProposal(db, human, b, String(body.termsHash ?? "")));
   if (request.method === "POST" && a === "proposals" && b && c === "approve") return json(approveProposal(db, human, b, String(body.termsHash ?? ""), now));
   if (request.method === "POST" && a === "proposals" && b && c === "reject") return json(rejectProposal(db, human, b, String(body.termsHash ?? ""), now));
   if (request.method === "POST" && a === "proposals" && b && c === "cancel") return json(cancelProposal(db, human, b, now));

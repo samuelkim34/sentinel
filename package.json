@@ -11,12 +11,17 @@
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "start": "node scripts/start.mjs",
+    "start:web": "node scripts/start.mjs --web-only",
     "worker": "node --import tsx src/worker/main.ts",
+    "worker:agents": "node --import tsx src/worker/agents.ts",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
     "test:e2e": "playwright test",
-    "banking:grant-link": "node --import tsx scripts/grant-link.ts"
+    "test:e2e:agents": "playwright test --config playwright.agents.config.ts",
+    "test:e2e:forms": "playwright test --config playwright.forms.config.ts",
+    "banking:grant-link": "node --import tsx scripts/grant-link.ts",
+    "banking:populate-merchants": "node --import tsx scripts/populate-merchants.ts"
   },
   "dependencies": {
     "@better-auth/oauth-provider": "1.7.7",

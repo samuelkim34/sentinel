@@ -365,8 +365,13 @@ export async function syncMerchants(db: DatabaseSync, human: HumanContext, now: 
   const member = requireHuman(db, human);
   assertOwner(member);
   const adapter = getBankingAdapter();
-  const page = await adapter.listMerchants({ limit: 200 });
-  if (!page.supported) throw unavailable("MERCHANT_SYNC_UNAVAILABLE", "Merchant listing is not available from the configured bank.");
+  let page;
+  try { page = await adapter.listMerchants({ limit: 200 }); }
+  catch (error) {
+    if (error instanceof BankOperationError) throw unavailable(`MERCHANT_SYNC_${error.kind}`, `Merchant sync failed: ${error.message} Check the server's Nessie key and base URL.`);
+    throw error;
+  }
+  if (!page.supported) throw unavailable("MERCHANT_SYNC_UNAVAILABLE", "Merchant listing is unavailable. Set NESSIE_API_KEY on the server and restart Sentinel.");
   return atomic(db, () => {
     assertOwner(requireHuman(db, human));
     for (const merchant of page.merchants) {
@@ -484,6 +489,7 @@ export function walletSummary(db: DatabaseSync, wallet: Record<string, unknown>)
     provider: "Nessie sandbox" as const,
     upstreamAccountId: maskAccount(text(wallet.upstream_account_id as never)),
     currency: "USD" as const,
+    localSandboxLedger: Boolean(row(db, "SELECT wallet_id FROM sandbox_ledgers WHERE wallet_id = ?", [walletId])),
     policyBalanceCents: balance,
     observedBalanceCents: latest ? num(latest.observed_balance_cents) : null,
     observedAt: latest ? num(latest.observed_at) : null,
@@ -555,7 +561,11 @@ export function applyObservation(
   );
   let state = text(current.state);
   let reason = current.quarantine_reason ? text(current.quarantine_reason) : null;
-  if (unresolved === 0 && balanceCents !== num(current.policy_balance_cents)) {
+  const sandboxLedger = row(db, 'SELECT initial_observed_cents FROM sandbox_ledgers WHERE wallet_id = ?', [walletId]);
+  if (sandboxLedger && balanceCents !== num(sandboxLedger.initial_observed_cents)) {
+    state = 'QUARANTINED';
+    reason = 'Nessie balance changed after the local sandbox ledger began. Local spending has not been deducted again or reset. Reconcile the external change before further spending.';
+  } else if (!sandboxLedger && unresolved === 0 && balanceCents !== num(current.policy_balance_cents)) {
     state = "QUARANTINED";
     reason = "Upstream balance does not match Sentinel's conservative balance.";
   }
@@ -585,6 +595,7 @@ export function establishBaseline(db: DatabaseSync, human: HumanContext, walletI
     assertFreshAuth(db, human.sessionId, human.userId, now);
     const wallet = row(db, "SELECT * FROM wallets WHERE id = ? AND workspace_id = ?", [walletId, human.workspaceId]);
     if (!wallet) throw invalid("WALLET_MISSING", "That account is not available.");
+    if (row(db, 'SELECT wallet_id FROM sandbox_ledgers WHERE wallet_id = ?', [walletId])) throw conflict('SANDBOX_LEDGER_BASELINE', 'A local sandbox ledger cannot be reset from Nessie: that would restore already-spent funds. Use a new sandbox account for a fresh demo.');
     const unresolved = num(
       row(
         db,

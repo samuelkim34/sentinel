@@ -159,6 +159,7 @@ export function resumeRegistration(db: DatabaseSync, human: HumanContext, regist
     const registration = requireControllable(db, human, registrationId);
     if (text(registration.state) !== "PAUSED") throw conflict("NOT_PAUSED", "Only a paused registration can be resumed.");
     run(db, "UPDATE registrations SET state = 'ACTIVE', version = version + 1 WHERE id = ?", [registrationId]);
+    run(db, 'UPDATE agent_profiles SET execution_epoch = execution_epoch + 1 WHERE registration_id = ?', [registrationId]);
     // A cancelled proposal keeps its immutable revision. Resuming starts a new
     // revision only for paused tasks with no submitted operation.
     run(db, `UPDATE tasks SET revision = revision + 1 WHERE registration_id = ? AND state = 'PAUSED'
@@ -202,6 +203,7 @@ export function archiveRegistration(db: DatabaseSync, human: HumanContext, regis
 export function createConnection(db: DatabaseSync, human: HumanContext, registrationId: string, mode: "OAUTH" | "PERSONAL_TOKEN", now: number) {
   return atomic(db, () => {
     const registration = requireControllable(db, human, registrationId);
+    if (row(db, 'SELECT registration_id FROM agent_profiles WHERE registration_id = ?', [registrationId])) throw conflict('ONSITE_AGENT_CONNECTION', 'This agent already runs inside Sentinel. External connections are disabled for it.');
     if (text(registration.state) === "ARCHIVED") throw conflict("REGISTRATION_ARCHIVED", "Archived registrations cannot accept connections.");
     const workspace = requireWorkspace(db, human.workspaceId);
     if (mode === 'PERSONAL_TOKEN' && (workspace.kind !== 'PERSONAL' || text(registration.controller_user_id) !== human.userId)) {
@@ -481,6 +483,7 @@ function registrationSummary(db: DatabaseSync, registrationId: string) {
     "SELECT tools_verified_at, last_seen_at, state FROM connections WHERE registration_id = ? AND state != 'REVOKED' ORDER BY created_at DESC LIMIT 1",
     [registrationId],
   );
+  const profile = row(db, 'SELECT p.instructions, c.state FROM agent_profiles p JOIN connections c ON c.id = p.connection_id WHERE p.registration_id = ?', [registrationId]);
   return {
     id: registrationId,
     name: text(registration.name),
@@ -491,6 +494,9 @@ function registrationSummary(db: DatabaseSync, registrationId: string) {
     toolsVerifiedAt: connection?.tools_verified_at ? num(connection.tools_verified_at) : null,
     lastSeenAt: connection?.last_seen_at ? num(connection.last_seen_at) : null,
     connectionState: connection ? text(connection.state) : null,
+    executionMode: profile ? 'ONSITE' : 'EXTERNAL',
+    agentInstructions: profile ? text(profile.instructions) : null,
+    agentReady: Boolean(profile && text(profile.state) === 'ACTIVE' && text(registration.state) === 'ACTIVE'),
   };
 }
 
@@ -513,7 +519,8 @@ function registrationDetail(db: DatabaseSync, human: HumanContext, registrationI
     [registrationId],
   ).map((item) => ({ id: text(item.id), title: text(item.title), state: text(item.state), kind: text(item.kind) }));
   const origin = safeOrigin();
-  const connection = row(db, "SELECT id, resource_uri, auth_mode, state FROM connections WHERE registration_id = ? ORDER BY created_at DESC LIMIT 1", [registrationId]);
+  const connection = row(db, "SELECT id, resource_uri, auth_mode, state FROM connections WHERE registration_id = ? AND auth_mode != 'INTERNAL' AND state IN ('ACTIVE','PENDING') ORDER BY created_at DESC, rowid DESC LIMIT 1", [registrationId]);
+  const lastConnection = row(db, "SELECT state FROM connections WHERE registration_id = ? AND auth_mode != 'INTERNAL' ORDER BY created_at DESC, rowid DESC LIMIT 1", [registrationId]);
   return {
     ...summary,
     workspaceId: human.workspaceId,
@@ -525,6 +532,7 @@ function registrationDetail(db: DatabaseSync, human: HumanContext, registrationI
       registrationId,
       connectorUrl: connection ? text(connection.resource_uri) : `${origin}/mcp/<connection-id>`,
       connectionId: connection ? text(connection.id) : null,
+      connectionState: connection ? text(connection.state) : lastConnection ? text(lastConnection.state) : null,
       authMode: connection ? text(connection.auth_mode) : null,
       instructions: botInstructions(summary.name, summary.purpose, connection ? text(connection.resource_uri) : `${origin}/mcp/<connection-id>`),
     },

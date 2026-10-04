@@ -5,7 +5,7 @@ import { MAX_AMOUNT_CENTS } from '../contracts/money';
 import { getEnv } from "../server/env";
 import { atomic, num, row, rows, run, text } from "../storage/sql";
 import { assertCanApprove, assertFreshAuth, audit, requireActiveMember, requireHuman, type ConnectorContext, type HumanContext } from "./access";
-import { effectiveCategory } from "./accounts";
+import { effectiveCategory, refreshWallet } from "./accounts";
 import { mandateDto } from "./authority";
 import { canonicalHash, id, randomToken, sha256 } from "./ids";
 import { evaluatePolicy, type PolicyInput } from "./policy";
@@ -431,6 +431,46 @@ export function submitPurchase(db: DatabaseSync, ctx: ConnectorContext, terms: P
   });
 }
 
+// Recheck the same immutable terms. This is never a retry of a bank submission.
+export async function recheckBlockedProposal(db: DatabaseSync, human: HumanContext, proposalId: string, termsHash: string) {
+  function eligible() {
+    const member = requireHuman(db, human);
+    assertCanApprove(member);
+    const proposal = requireProposal(db, human.workspaceId, proposalId);
+    if (text(proposal.state) !== 'BLOCKED') throw conflict('PROPOSAL_STATE', 'Only a blocked, unsubmitted proposal can be rechecked.');
+    if (text(proposal.terms_hash) !== termsHash) throw conflict('TERMS_CONFLICT', 'The purchase terms changed. Refresh this page.');
+    const task = row(db, 'SELECT * FROM tasks WHERE id = ?', [text(proposal.task_id)])!;
+    if (text(task.state) !== 'BLOCKED' || num(task.revision) !== num(proposal.task_revision)) throw conflict('TASK_CHANGED', 'This task has changed. Review its current activity.');
+    if (row(db, 'SELECT id FROM payment_operations WHERE proposal_id IN (SELECT id FROM proposals WHERE task_id = ?)', [text(task.id)])) throw conflict('ALREADY_SUBMITTED', 'This task already has a payment operation. Read bank status instead.');
+    if (row(db, "SELECT id FROM instructions WHERE task_id = ? AND state != 'APPLIED'", [text(task.id)])) throw conflict('INSTRUCTIONS_PENDING', 'Let the agent apply pending instructions before rechecking.');
+    return { proposal, task };
+  }
+  const initial = eligible();
+  await refreshWallet(db, human, text(initial.proposal.wallet_id), Date.now());
+  return atomic(db, () => {
+    // Refresh is network I/O: permissions and proposal state may have changed.
+    const { proposal, task } = eligible();
+    const now = Date.now();
+    const connectionAllowsWork = Boolean(row(db, `SELECT c.id FROM task_leases l JOIN connections c ON c.id = l.connection_id
+      WHERE l.task_id = ? AND c.state = 'ACTIVE' AND c.workspace_id = ? AND c.registration_id = ? AND c.user_id = ?`,
+      [text(task.id), human.workspaceId, text(proposal.registration_id), text(task.controller_user_id)]));
+    const decision = decide(db, { now, mode: 'new', workspaceId: human.workspaceId, userId: text(task.controller_user_id),
+      registrationId: text(proposal.registration_id), connectionAllowsWork, task,
+      merchantId: text(proposal.merchant_id), amountCents: num(proposal.amount_cents) });
+    run(db, 'UPDATE proposals SET state = ?, decision_codes = ?, explanation = ?, available_cents = ?, updated_at = ? WHERE id = ?',
+      [decision.outcome, JSON.stringify(decision.codes), decision.explanation, decision.availableCents, now, proposalId]);
+    const state = decision.outcome === 'RESERVED' ? 'WAITING_PAYMENT' : decision.outcome === 'REVIEW_REQUIRED' ? 'WAITING_APPROVAL' : 'BLOCKED';
+    run(db, 'UPDATE tasks SET state = ?, updated_at = ? WHERE id = ?', [state, now, text(task.id)]);
+    if (decision.outcome === 'RESERVED') {
+      run(db, 'INSERT INTO reservations (proposal_id, wallet_id, mandate_id, amount_cents, created_at) VALUES (?, ?, ?, ?, ?)',
+        [proposalId, text(proposal.wallet_id), text(proposal.mandate_id), num(proposal.amount_cents), now]);
+      run(db, "INSERT INTO jobs (id, kind, subject_id, state, run_after, attempt_count) VALUES (?, 'payment', ?, 'DUE', ?, 0)", [id(), proposalId, now]);
+    }
+    audit(db, { workspaceId: human.workspaceId, actorKind: 'human', actorUserId: human.userId, eventType: 'PROPOSAL_RECHECKED', subjectType: 'proposal', subjectId: proposalId, detail: { outcome: decision.outcome, codes: decision.codes, termsHash }, at: now });
+    return proposalDto(db, proposalId);
+  });
+}
+
 export function approveProposal(db: DatabaseSync, human: HumanContext, proposalId: string, termsHash: string, now: number) {
   return atomic(db, () => {
     const member = requireHuman(db, human);
@@ -616,7 +656,9 @@ export function proposalDto(db: DatabaseSync, proposalId: string) {
       state: text(operation.state),
       upstreamId: operation.upstream_id ? text(operation.upstream_id) : null,
       reference: text(operation.upstream_reference),
+      settlementMode: text(operation.settlement_mode),
       manualReview: num(operation.manual_review) === 1,
+      detail: operation.detail ? text(operation.detail) : null,
     } : null,
   };
 }
@@ -702,6 +744,10 @@ function decide(db: DatabaseSync, input: {
     completedCommitmentCents: completed,
     amountCents: input.amountCents,
     ownProposalId: input.ownProposalId,
+  };
+  if (getEnv().NESSIE_WHOLE_DOLLARS_ONLY && input.amountCents % 100 !== 0) return {
+    outcome: 'BLOCKED' as const, codes: ['NESSIE_WHOLE_DOLLARS_REQUIRED'], availableCents: null,
+    explanation: 'Whole-dollar sandbox mode is enabled. These fractional-dollar terms cannot be submitted. Choose a whole-dollar catalog total for a new, separately authorized purchase; existing terms are never rounded.'
   };
   return evaluatePolicy(policyInput);
 }

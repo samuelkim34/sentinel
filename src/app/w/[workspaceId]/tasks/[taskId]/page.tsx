@@ -15,14 +15,14 @@ export default function TaskDetailPage() {
       title: string; state: string; kind: string; requestedOutcome: string; registrationId: string; revision: number;
       instructions: Array<{ id: string; state: string; text: string; createdAt: number; acknowledgedAt: number | null; appliedAt: number | null }>;
       updates: Array<{ id: string; phase: string; note: string; source: string; createdAt: number }>;
-      proposals: Array<{ id: string; state: string; amountCents: number; explanation: string; decisionCodes: string[] }>;
+      proposals: Array<{ id: string; state: string; amountCents: number; explanation: string; decisionCodes: string[]; payment: { settlementMode: string; detail: string | null } | null }>;
     }>(`/api/workspaces/${workspaceId}/tasks/${taskId}`),
-    refetchInterval: () => (document.hidden ? false : 2000),
+    refetchInterval: 2000,
   });
   const bot = useQuery({
     queryKey: ["bot-verified", workspaceId, task.data?.registrationId],
     enabled: Boolean(task.data?.registrationId),
-    queryFn: () => api<{ toolsVerifiedAt: number | null }>(`/api/workspaces/${workspaceId}/registrations/${task.data!.registrationId}`),
+    queryFn: () => api<{ toolsVerifiedAt: number | null; agentReady: boolean }>(`/api/workspaces/${workspaceId}/registrations/${task.data!.registrationId}`),
   });
   const instruct = useMutation({
     mutationFn: (text: string) => api(`/api/workspaces/${workspaceId}/tasks/${taskId}/instructions`, { method: "POST", body: JSON.stringify({ text }) }),
@@ -36,7 +36,7 @@ export default function TaskDetailPage() {
       <h1 className="text-3xl font-semibold">{data.title}</h1>
       <p>{data.kind} · {data.state} · revision {data.revision}</p>
       <p>{data.requestedOutcome}</p>
-      {data.kind === "PURCHASE" ? <p className="text-sm">Supported money action: one Nessie sandbox merchant purchase. A bot report is not a bank receipt.</p> : <p className="text-sm">Research can describe unsupported requests. Sentinel will not confirm a booking it cannot make.</p>}
+      {data.kind === "PURCHASE" ? <p className="text-sm">Supported action: one Nessie sandbox merchant purchase. Sandbox completion verifies a simulated transaction record and updates the local spending balance; it does not prove a bank balance deduction.</p> : <p className="text-sm">Research can describe unsupported requests. Sentinel will not confirm a booking it cannot make.</p>}
       <Card>
         <h2 className="text-xl font-semibold">Instructions</h2>
         {data.instructions.length === 0 ? <p>None queued.</p> : data.instructions.map((item) => <p key={item.id}>{item.state} · {formatWhen(item.createdAt)} · acknowledged {formatWhen(item.acknowledgedAt)} · applied {formatWhen(item.appliedAt)} — {item.text}</p>)}
@@ -52,9 +52,9 @@ export default function TaskDetailPage() {
       </Card>
       <Card>
         <h2 className="text-xl font-semibold">Policy and payment</h2>
-        {data.proposals.length === 0 ? <p>No proposal yet.</p> : data.proposals.map((item) => <p key={item.id}>{formatUsd(item.amountCents)} · {item.state} · {item.decisionCodes.join(", ")} — {item.explanation}</p>)}
+        {data.proposals.length === 0 ? <p>No proposal yet.</p> : data.proposals.map((item) => <p key={item.id}>{formatUsd(item.amountCents)} · {item.state === "COMPLETED" && item.payment?.settlementMode === "LOCAL_SANDBOX" ? "SANDBOX COMPLETED" : item.state} · {item.decisionCodes.join(", ")} — {item.explanation}</p>)}
       </Card>
-      <VoicePanel workspaceId={workspaceId} registrationId={data.registrationId} taskId={taskId} toolsVerified={Boolean(bot.data?.toolsVerifiedAt)} />
+      <VoicePanel workspaceId={workspaceId} registrationId={data.registrationId} taskId={taskId} agentReady={Boolean(bot.data?.agentReady || bot.data?.toolsVerifiedAt)} />
     </div>
   );
 }

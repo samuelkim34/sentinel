@@ -3,7 +3,7 @@ import { betterAuth } from "better-auth";
 import { jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { OAUTH_SCOPES } from "../../contracts/constants";
-import { getDb } from "../../storage/db";
+import { getAuthDb } from "../../storage/db";
 import { getEnv } from "../env";
 import { trustedOriginsFor } from "../origins";
 
@@ -23,7 +23,7 @@ export const authOptions = {
   baseURL: getEnv().BETTER_AUTH_URL,
   secret: getEnv().BETTER_AUTH_SECRET,
   basePath: "/api/auth",
-  database: getDb(),
+  database: getAuthDb(),
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 12,

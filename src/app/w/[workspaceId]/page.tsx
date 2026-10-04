@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { api, formatUsd, formatWhen } from "../../../client/api";
+import { api, formatUsd } from "../../../client/api";
 import { Badge, Card } from "../../../components/ui";
 
 type Overview = {
@@ -109,7 +109,7 @@ export default function OverviewPage() {
               <p className="text-3xl font-medium text-ink">{data.registrations.length}</p>
               <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-emerald-800">Active</span>
             </div>
-            {data.registrations.length === 0 ? <Link className="mt-3 inline-block text-sm underline" href={`/w/${workspaceId}/bots`}>Register a Grok Bot</Link> : <p className="mt-3 text-sm text-slate-600">{data.registrations[0].name}</p>}
+            {data.registrations.length === 0 ? <Link className="mt-3 inline-block text-sm underline" href={`/w/${workspaceId}/bots`}>Create a Grok agent</Link> : <p className="mt-3 text-sm text-slate-600">{data.registrations[0].name}</p>}
           </Card>
           <Card className="p-5">
             <p className="text-[0.7rem] uppercase tracking-[0.2em] text-slate-500">Approvals</p>
