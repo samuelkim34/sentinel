@@ -5,6 +5,7 @@ import { notFound, unavailable } from "../../../../../contracts/errors";
 import { parseUsdToCents } from "../../../../../contracts/money";
 import {
   confirmMerchantCategory,
+  confirmSuggestedMerchantCategories,
   createProtection,
   establishBaseline,
   getWallet,
@@ -124,7 +125,8 @@ async function handle(request: Request, workspaceId: string, slug: string[]) {
   }
   if (request.method === "GET" && a === "products") return json({ products: listProducts(db, human, new URL(request.url).searchParams.get("search") ?? "") });
   if (request.method === "GET" && a === "merchants") return json({ merchants: listMerchants(db, human, typeof body.search === "string" ? body.search : request.url.includes("search=") ? new URL(request.url).searchParams.get("search") ?? undefined : undefined) });
-  if (request.method === "POST" && a === "merchants" && b === "sync") return json(await syncMerchants(db, human, now));
+  if (request.method === "POST" && a === "merchants" && b === "sync") return json(await syncMerchants(db, human, now, body.prepareSandbox === true));
+  if (request.method === "POST" && a === "merchants" && b === "confirm-suggestions") return json(confirmSuggestedMerchantCategories(db, human, body.merchants, now));
   if (request.method === "PATCH" && a === "merchants" && b) {
     return json(confirmMerchantCategory(db, human, b, String(body.category ?? "") as MerchantCategory, now));
   }

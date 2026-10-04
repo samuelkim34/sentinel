@@ -1,5 +1,5 @@
 import type { MerchantCategory } from "../contracts/constants";
-import type { MerchantRecord } from "./types";
+import { BankOperationError, type MerchantRecord } from "./types";
 import type { NessieClient, SandboxMerchantInput } from "./nessie-client";
 
 export type CatalogEntry = { name: string; category: Exclude<MerchantCategory, "UNKNOWN"> };
@@ -68,6 +68,10 @@ function nameKey(name: string): string {
   return name.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+export function suggestedMerchantCategory(name: string): CatalogEntry["category"] | null {
+  return US_MERCHANT_CATALOG.find(entry => nameKey(entry.name) === nameKey(name))?.category ?? null;
+}
+
 export function planMerchantCatalog(existing: readonly MerchantRecord[], catalog = US_MERCHANT_CATALOG): CatalogAction[] {
   const byName = new Map<string, MerchantRecord[]>();
   const seenIds = new Set<string>();
@@ -79,15 +83,15 @@ export function planMerchantCatalog(existing: readonly MerchantRecord[], catalog
   }
   const legacy = byName.get(nameKey("Sentinel Office Supplies")) ?? [];
   const staples = byName.get(nameKey("Staples")) ?? [];
-  if (legacy.length > 1) throw new Error("Several merchants are named Sentinel Office Supplies. Resolve the duplicate names in Nessie before running this command; no changes were made.");
-  if (legacy.length && staples.length) throw new Error("Both Staples and Sentinel Office Supplies already exist. Resolve that rename conflict in Nessie first; no changes were made.");
+  if (legacy.length > 1) throw new BankOperationError("INVALID_RESPONSE", "Several merchants are named Sentinel Office Supplies. Resolve the duplicate names in Nessie before setup; no changes were made.");
+  if (legacy.length && staples.length) throw new BankOperationError("INVALID_RESPONSE", "Both Staples and Sentinel Office Supplies already exist. Resolve that rename conflict in Nessie first; no changes were made.");
   const entries = new Set<string>();
   return catalog.map(entry => {
     const key = nameKey(entry.name);
-    if (!key || entries.has(key)) throw new Error("The requested catalog contains duplicate or empty business names.");
+    if (!key || entries.has(key)) throw new BankOperationError("INVALID_RESPONSE", "The requested catalog contains duplicate or empty business names.");
     entries.add(key);
     const matches = byName.get(key) ?? [];
-    if (matches.length > 1) throw new Error(`Several Nessie merchants match ${entry.name}. Resolve those duplicate names first; no changes were made.`);
+    if (matches.length > 1) throw new BankOperationError("INVALID_RESPONSE", `Several Nessie merchants match ${entry.name}. Resolve those duplicate names first; no changes were made.`);
     if (matches[0]) return { kind: "keep", entry, merchant: matches[0] };
     if (key === nameKey("Staples") && legacy[0]) return { kind: "rename", entry, merchant: legacy[0] };
     return { kind: "create", entry };

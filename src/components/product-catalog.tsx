@@ -21,7 +21,7 @@ export function ProductCatalog({ workspaceId }: { workspaceId: string }) {
     <ul className="mt-3 grid max-h-[32rem] gap-3 overflow-auto sm:grid-cols-2">{products.map(p => <li key={p.id} className="rounded-xl border border-line p-3">
       <p className="font-medium">{p.name} · {formatUsd(p.unitPriceCents)}</p>
       <p className="text-sm">{p.merchant} · {p.verifiedCategory}</p>
-      <p className="text-sm">{p.available ? p.verifiedCategory === 'UNKNOWN' ? 'Confirm the merchant category below before purchasing.' : 'Merchant linked. Purchase is subject to your allowance.' : p.unavailableReason}</p>
+      <p className="text-sm">{p.available ? p.verifiedCategory === 'UNKNOWN' ? 'Confirm the merchant category in Settings → Merchants before purchasing.' : 'Merchant linked. Purchase is subject to your allowance.' : p.unavailableReason}</p>
     </li>)}</ul>
     {catalog.data && !products.length && <p>No matching products. Try a simpler keyword.</p>}
   </Card>;

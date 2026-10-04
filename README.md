@@ -81,7 +81,7 @@ Build before browser tests; install browsers with `npx playwright install chromi
 
 Money fields use decimal numeric inputs and cannot accept login email addresses. Password confirmations start empty and read-only until focused, with autofill disabled. They are cleared after an attempted action; independent approval/baseline forms do not share password values. Account, task, protection and allowance creation reset after success and retain non-secret inputs on failure. Browser extensions can choose to override autofill hints; manually selected password-manager fills remain browser-controlled.
 
-Merchant sync displays progress, imported/updated counts, upstream errors and empty provider results separately. It supports raw arrays and bounded same-origin paginated lists, preserves confirmed categories and never creates replacement merchants when the bank returns no data.
+Merchant sync displays progress, imported/updated counts, upstream errors and empty provider results separately. It supports raw arrays and bounded same-origin paginated lists, preserves confirmed categories. The owner-facing sync button creates missing sample merchants before importing; Import existing only makes no upstream changes.
 
 ## Add recognizable sandbox businesses
 
@@ -95,7 +95,7 @@ This explicitly requested setup command renames `Sentinel Office Supplies` to **
 
 These are sandbox representations of real business names. New records use a shared synthetic Fairfax address and coordinates, not verified store branches. They do not establish retailer connections or create real orders. Ordinary setup/startup stays empty; no merchants are added until you run this command.
 
-Afterward, open **Settings → Sync Nessie merchants** and confirm the categories for the merchants your agents will use. Provider category suggestions do not grant spending authority. See [the catalog and recovery details](docs/nessie.md#populate-the-sandbox-business-catalog).
+Alternatively, skip the command: open **Settings → Sync Nessie merchants** to create and import missing merchants, then confirm the suggested categories for the merchants your agents will use. Provider category suggestions do not grant spending authority. See [the catalog and recovery details](docs/nessie.md#populate-the-sandbox-business-catalog).
 
 ## GitHub and hosting
 

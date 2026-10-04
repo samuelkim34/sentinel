@@ -35,7 +35,8 @@ These suffixes are under `/api/workspaces/:workspaceId`. Domain checks determine
 | `POST /accounts/:walletId/refresh` | Authorized account refresh with identity/version checks |
 | `POST /accounts/:walletId/baseline` | Owner and fresh auth; fresh observation, no unresolved operation |
 | `POST /protections`, `PATCH /protections/:id` | Owner and fresh auth; state/version/funds checks |
-| `GET /merchants`, `POST /merchants/sync` | Catalog read / owner sync |
+| `GET /merchants`, `POST /merchants/sync` | Catalog with suggested categories / owner sync; `{prepareSandbox: true}` creates missing sample merchants before importing, otherwise read-only upstream |
+| `POST /merchants/confirm-suggestions` | Owner confirms the reviewed `{merchants: [{id, category}]}` batch; validates suggestions, preserves existing confirmations, audits each change |
 | `PATCH /merchants/:id` | Owner category confirmation for this workspace |
 | `GET/POST /registrations` | Permitted list / controlled registration; owner-only business read grants |
 | `GET/PATCH /registrations/:id` | Visible registration / control and version checks |

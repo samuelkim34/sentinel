@@ -12,7 +12,7 @@ import { ProductCatalog } from "../../../../components/product-catalog";
 const categories = ["GROCERIES", "DINING", "TRANSPORT", "UTILITIES", "OFFICE", "SOFTWARE", "TRAVEL", "HEALTH", "ENTERTAINMENT", "OTHER", "UNKNOWN"];
 
 type Member = { userId: string; name: string; role: string; state: string; version: number };
-type Merchant = { id: string; label: string; verifiedCategory: string };
+type Merchant = { id: string; label: string; verifiedCategory: string; suggestedCategory: string | null };
 
 export default function SettingsPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -69,12 +69,24 @@ export default function SettingsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["prefs"] }),
   });
   const sync = useMutation({
-    mutationFn: () => api<{ imported: number }>(`/api/workspaces/${workspaceId}/merchants/sync`, { method: "POST", body: "{}" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["merchants", workspaceId] }),
+    mutationFn: (prepareSandbox: boolean) => api<{ imported: number; setup: { created: number; renamed: number; existing: number } | null }>(`/api/workspaces/${workspaceId}/merchants/sync`, { method: "POST", body: JSON.stringify({ prepareSandbox }) }),
+    retry: false,
+    onSettled: () => refreshCatalog(),
   });
+  const refreshCatalog = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["merchants", workspaceId] }),
+    queryClient.invalidateQueries({ queryKey: ["products", workspaceId] }),
+  ]);
   const confirm = useMutation({
     mutationFn: (body: { id: string; category: string }) => api(`/api/workspaces/${workspaceId}/merchants/${body.id}`, { method: "PATCH", body: JSON.stringify({ category: body.category }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["merchants", workspaceId] }),
+    onSuccess: () => refreshCatalog(),
+  });
+  const suggestions = (merchants.data?.merchants ?? []).filter(merchant => merchant.verifiedCategory === "UNKNOWN" && merchant.suggestedCategory);
+  const confirmSuggestions = useMutation({
+    mutationFn: () => api<{ confirmed: number; skipped: number }>(`/api/workspaces/${workspaceId}/merchants/confirm-suggestions`, {
+      method: "POST", body: JSON.stringify({ merchants: suggestions.map(merchant => ({ id: merchant.id, category: merchant.suggestedCategory })) }),
+    }),
+    onSuccess: () => refreshCatalog(),
   });
 
   return (
@@ -168,20 +180,30 @@ export default function SettingsPage() {
       <Card className="p-5">
         <h2 className="text-xl font-semibold text-ink">Merchants</h2>
         <p className="mt-2 text-sm text-slate-600">A category of UNKNOWN blocks a category-restricted purchase until an owner confirms it. Sync does not overwrite a category that was already confirmed.</p>
-        {current?.role === "owner" && <Button className="mt-4" variant="quiet" type="button" disabled={sync.isPending || !config.data?.nessieConfigured} onClick={() => sync.mutate()}>{sync.isPending ? "Syncing Nessie merchants…" : "Sync Nessie merchants"}</Button>}
+        <p className="mt-2 text-sm text-slate-600">Sync sets up 50 sample businesses in your Nessie sandbox, skips existing businesses, and imports the catalog. These are simulated merchants, not real stores or checkout connections. Setup may take a minute.</p>
+        {current?.role === "owner" && <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="quiet" type="button" disabled={sync.isPending || !config.data?.nessieConfigured} onClick={() => { confirmSuggestions.reset(); sync.mutate(true); }}>{sync.isPending ? "Setting up and syncing merchants…" : "Sync Nessie merchants"}</Button>
+          <Button variant="quiet" type="button" disabled={sync.isPending || !config.data?.nessieConfigured} onClick={() => sync.mutate(false)}>Import existing only</Button>
+        </div>}
         {current?.role === "owner" && config.data && !config.data.nessieConfigured && <p role="status" className="mt-3 text-sm">Set NESSIE_API_KEY on the server and restart Sentinel to sync merchants.</p>}
-        {sync.isError ? <p role="alert" className="mt-3">{sync.error.message}</p> : null}
-        {sync.isSuccess && <p role="status" className="mt-3 text-sm">{sync.data.imported ? `Sync completed: ${sync.data.imported} merchants imported or updated.` : "Sync completed. Nessie returned no merchants for this API key. Check the merchant data in your Nessie sandbox."}</p>}
+        {sync.isError ? <p role="alert" className="mt-3">{sync.error.message} Earlier successful creations may remain in Nessie. Use Import existing only to inspect them before trying setup again.</p> : null}
+        {sync.isSuccess && <p role="status" className="mt-3 text-sm">{sync.data.imported ? `Sync completed: ${sync.data.imported} merchants imported or updated.` : "Nessie returned no merchants. Click Sync Nessie merchants to create the sample catalog."}{sync.data.setup && ` Created ${sync.data.setup.created}, renamed ${sync.data.setup.renamed}, already present ${sync.data.setup.existing}. Review the suggested categories below.`}</p>}
         {merchants.isLoading && <p role="status" className="mt-3 text-sm">Loading merchant catalog…</p>}
         {merchants.isError && <p role="alert" className="mt-3">Merchant catalog could not be loaded: {merchants.error.message}</p>}
-        {merchants.data?.merchants.length === 0 ? <p className="mt-3 text-sm text-slate-600">No merchants in the catalog yet. Sync imports existing Nessie merchants; it does not create merchants.</p> : (
+        {current?.role === "owner" && suggestions.length > 0 && <div className="mt-4 rounded-xl border border-line p-3">
+          <p className="text-sm">Review the suggested categories beside each merchant. Confirming them allows matching category-restricted mandates to use these merchants. Existing confirmed categories stay unchanged.</p>
+          <Button className="mt-3" type="button" disabled={confirmSuggestions.isPending || confirm.isPending || sync.isPending || merchants.isFetching} onClick={() => confirmSuggestions.mutate()}>{confirmSuggestions.isPending ? "Confirming…" : `Confirm ${suggestions.length} suggested categories`}</Button>
+        </div>}
+        {confirmSuggestions.isSuccess && <p role="status" className="mt-3 text-sm">Confirmed {confirmSuggestions.data.confirmed} categories. {confirmSuggestions.data.skipped} already confirmed categories were kept.</p>}
+        {confirmSuggestions.isError && <p role="alert" className="mt-3">{confirmSuggestions.error.message}</p>}
+        {merchants.data?.merchants.length === 0 ? <p className="mt-3 text-sm text-slate-600">No merchants yet. An owner can click Sync Nessie merchants to set up the sample catalog here.</p> : (
           <ul className="mt-4 space-y-2">
             {merchants.data?.merchants.map((merchant) => (
               <li key={merchant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f8f4ef] p-3">
-                <span className="text-sm text-ink">{merchant.label} · {merchant.verifiedCategory}</span>
+                <span className="text-sm text-ink">{merchant.label} · {merchant.verifiedCategory}{merchant.verifiedCategory === "UNKNOWN" && merchant.suggestedCategory ? ` · Suggested: ${merchant.suggestedCategory}` : ""}</span>
                 {current?.role === "owner" ? (
-                  <select className="rounded-xl border border-line bg-white px-2 py-1.5 text-sm text-ink" defaultValue={merchant.verifiedCategory} onChange={(event) => confirm.mutate({ id: merchant.id, category: event.target.value })}>
-                    {categories.map((category) => <option key={category}>{category}</option>)}
+                  <select aria-label={`Category for ${merchant.label}`} disabled={confirm.isPending || confirmSuggestions.isPending || sync.isPending} className="rounded-xl border border-line bg-white px-2 py-1.5 text-sm text-ink" value={merchant.verifiedCategory} onChange={(event) => { confirmSuggestions.reset(); confirm.mutate({ id: merchant.id, category: event.target.value }); }}>
+                    {categories.map((category) => <option key={category} disabled={category === "UNKNOWN"}>{category}</option>)}
                   </select>
                 ) : null}
               </li>

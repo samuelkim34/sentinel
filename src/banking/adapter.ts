@@ -1,5 +1,7 @@
 import { getEnv } from "../server/env";
 import { NessieClient } from "./nessie-client";
+import { populateMerchantCatalog } from "./sandbox-merchant-catalog";
+import { withMerchantSetupLock } from "./merchant-setup-lock";
 import {
   BankOperationError,
   type BankingAdapter,
@@ -37,6 +39,12 @@ class NessieAdapter implements BankingAdapter {
 
   constructor(private readonly client: NessieClient) {}
 
+  async prepareSandboxMerchants() {
+    const env = getEnv();
+    return withMerchantSetupLock({ baseUrl: env.NESSIE_BASE_URL, apiKey: env.NESSIE_API_KEY!, dbPath: env.SENTINEL_DB_PATH },
+      () => populateMerchantCatalog(this.client));
+  }
+
   getAccount(externalId: string) {
     return this.client.getAccount(externalId);
   }
@@ -46,7 +54,7 @@ class NessieAdapter implements BankingAdapter {
   }
 
   async listMerchants(query: MerchantQuery): Promise<MerchantPage> {
-    const merchants = await this.client.listMerchants();
+    const merchants = await this.client.listMerchants(1000, { requireComplete: true });
     const filtered = merchants.filter((merchant) => {
       if (query.search && !merchant.label.toLowerCase().includes(query.search.toLowerCase())) return false;
       if (query.category && merchant.rawCategory.toLowerCase() !== query.category.toLowerCase()) return false;
