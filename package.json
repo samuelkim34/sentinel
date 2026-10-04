@@ -7,6 +7,7 @@
   },
   "scripts": {
     "setup": "node scripts/setup.mjs",
+    "launch": "node scripts/launch.mjs",
     "migrate": "node --import tsx scripts/migrate.ts",
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
@@ -20,6 +21,7 @@
     "test:e2e": "playwright test",
     "test:e2e:agents": "playwright test --config playwright.agents.config.ts",
     "test:e2e:forms": "playwright test --config playwright.forms.config.ts",
+    "test:e2e:setup": "playwright test --config playwright.setup.config.ts",
     "banking:grant-link": "node --import tsx scripts/grant-link.ts",
     "banking:populate-merchants": "node --import tsx scripts/populate-merchants.ts"
   },

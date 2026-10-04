@@ -28,3 +28,7 @@ The database migration is version 4 and preserves all existing records. Keep the
 ## Limits and validation
 
 The live user experiment established that creation accepts `completed` while the provider balance remained unchanged. Automated tests mock that behavior; no live purchase was performed from this workspace. A timeout or failed readback remains uncertain and is reconciled instead of retried. Existing allowance, category, protected-fund, approval and reservation checks remain in force.
+
+## Local launcher defaults
+
+New configurations created by `Start-Sentinel` or `npm run setup` / `npm run dev` now enable `NESSIE_SIMULATE_COMPLETION=true` and `NESSIE_WHOLE_DOLLARS_ONLY=true`. Existing explicit values are never overwritten. Missing flags are appended to local configuration. This changes only future submissions; existing pending operations are not relabeled or resubmitted. Production processes that do not use local setup retain the environment schema defaults.
