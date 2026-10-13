@@ -1,5 +1,7 @@
 # Sentinel
 
+BigRedHacks 2026 Submission
+
 Sentinel lets individuals and businesses delegate financial work to Grok-powered agents they create, configure and chat with **inside Sentinel**. Humans control account access, protected funds, lifetime allowances and approvals. Agents can explain recorded finances, research those records, queue requested tasks and propose authorized sandbox purchases. A separate payment worker validates and settles eligible purchases through Capital One’s Nessie sandbox.
 
 A fresh installation starts empty. There are no installed demo agents or sample accounts. The runtime uses the xAI API; it does not provision native bots in the Grok app. Users need a Sentinel account, not a separate Grok bot setup. Test provider fixtures exist only under `test/` and `e2e/` and are never loaded by ordinary startup.
